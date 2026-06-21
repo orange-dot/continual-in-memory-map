@@ -77,6 +77,7 @@ and test a different learning substrate.
 13. `docs/12-memory-model.md`
 14. `docs/13-implementation-backlog-g-k.md`
 15. `docs/14-tail-latency-hedging.md`
+16. `docs/FORMAL_PROOF.md`
 
 Deferred / future mapping (not in current RAM-only scope, decision D013):
 
@@ -85,6 +86,8 @@ Deferred / future mapping (not in current RAM-only scope, decision D013):
 ## Layout
 
 - `docs/` records the theory, decisions, and research program.
+- `docs/isabelle/` contains the minimal V0a Isabelle/HOL proof lane for
+  abstract replay and snapshot-tail equivalence.
 - `experiments/taste-hdc/` preserves the imported CPU + RAM HDC taste-memory
   seed from `/home/dev/taste-hdc`.
 - `experiments/c-kernel/` contains the first C substrate: SoA synaptic map,

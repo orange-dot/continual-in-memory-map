@@ -1,0 +1,20 @@
+# Repo-local Isabelle user settings for `make proof`.
+#
+# Keep proof heaps/logs under this repo via USER_HOME, while allowing an
+# existing read-only component cache under the real home directory to provide
+# Java and Poly/ML when this lab already has Isabelle components installed.
+
+CIM_ISABELLE_COMPONENTS_BASE="${CIM_ISABELLE_COMPONENTS_BASE:-$HOME/.isabelle/contrib}"
+CIM_ISABELLE_SYSTEM_HEAPS="${CIM_ISABELLE_SYSTEM_HEAPS:-$HOME/.isabelle/heaps}"
+
+if [ -d "$CIM_ISABELLE_COMPONENTS_BASE" ]
+then
+  [ -f "$ISABELLE_HOME/Admin/components/main" ] && \
+    init_components "$CIM_ISABELLE_COMPONENTS_BASE" "$ISABELLE_HOME/Admin/components/main"
+  [ -f "$ISABELLE_HOME/Admin/components/bundled" ] && \
+    init_components "$CIM_ISABELLE_COMPONENTS_BASE" "$ISABELLE_HOME/Admin/components/bundled"
+fi
+
+ISABELLE_HEAPS="$ISABELLE_HOME_USER/heaps"
+[ -d "$CIM_ISABELLE_SYSTEM_HEAPS" ] && ISABELLE_HEAPS_SYSTEM="$CIM_ISABELLE_SYSTEM_HEAPS"
+ISABELLE_BROWSER_INFO="$ISABELLE_HOME_USER/browser_info"

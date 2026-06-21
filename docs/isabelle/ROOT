@@ -1,0 +1,3 @@
+session CIM_V0a = HOL +
+  theories
+    CIM_V0a_Log

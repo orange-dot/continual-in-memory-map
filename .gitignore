@@ -9,3 +9,4 @@ experiments/c-kernel/preference-native
 experiments/c-kernel/replay
 experiments/c-kernel/txn
 experiments/c-kernel/*.o
+.isabelle-user/
