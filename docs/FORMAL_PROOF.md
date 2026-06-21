@@ -1,6 +1,6 @@
 # Formal Proof Lane
 
-Status: minimal V0a Isabelle/HOL proof lane.
+Status: minimal V0a/V0b Isabelle/HOL proof lane.
 
 This proof lane is separate from the executable C smoke tests. It does not claim
 that the C implementation is formally verified.
@@ -40,14 +40,24 @@ V0a models only the abstract replay core:
 
 The checked theorems are in `docs/isabelle/CIM_V0a_Log.thy`.
 
+V0b models checked replay outcomes:
+
+- unsupported event kinds return `UnsupportedType`
+- bad sequence numbers return `BadSequence`
+- exceeding an abstract distinct-key capacity returns `CapacityExceeded`
+- those failures are not reported as successful replay
+
+The checked theorems are in `docs/isabelle/CIM_V0b_CheckedReplay.thy`.
+
 ## Known Proof Gaps
 
-V0a does not verify:
+This proof lane does not verify:
 
 - the C `cinm_map` layout
 - C memory safety or allocation behavior
 - floating-point arithmetic
-- capacity rejection or replay error reports
+- concrete C replay-report field correspondence
+- concrete `MAX_CELLS` capacity refinement
 - transaction rollback implementation
 - correspondence between C structs and the abstract Isabelle event model
 

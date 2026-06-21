@@ -1,3 +1,4 @@
 session CIM_V0a = HOL +
   theories
     CIM_V0a_Log
+    CIM_V0b_CheckedReplay

@@ -86,8 +86,8 @@ Deferred / future mapping (not in current RAM-only scope, decision D013):
 ## Layout
 
 - `docs/` records the theory, decisions, and research program.
-- `docs/isabelle/` contains the minimal V0a Isabelle/HOL proof lane for
-  abstract replay and snapshot-tail equivalence.
+- `docs/isabelle/` contains the minimal Isabelle/HOL proof lane for abstract
+  replay, snapshot-tail equivalence, and checked replay rejection.
 - `experiments/taste-hdc/` preserves the imported CPU + RAM HDC taste-memory
   seed from `/home/dev/taste-hdc`.
 - `experiments/c-kernel/` contains the first C substrate: SoA synaptic map,
