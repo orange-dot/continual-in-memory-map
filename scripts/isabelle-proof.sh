@@ -5,10 +5,10 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 ISABELLE_BIN=${ISABELLE:-isabelle}
 ISABELLE_USER_HOME=${ISABELLE_USER_HOME:-"$ROOT/.isabelle-user"}
 ISABELLE_COMMAND_TIMEOUT=${ISABELLE_COMMAND_TIMEOUT:-60}
-THEORY=CIM_V0b_CheckedReplay
+THEORY=CIM_Core_V0a_CellUpdate
 SETTINGS="$ISABELLE_USER_HOME/.isabelle/etc/settings"
 LOG_DIR="$ISABELLE_USER_HOME/proof-logs"
-LOG="$LOG_DIR/cim-v0b-process.log"
+LOG="$LOG_DIR/cim-core-process.log"
 
 mkdir -p "$(dirname "$SETTINGS")" "$LOG_DIR"
 if [ ! -f "$SETTINGS" ]; then

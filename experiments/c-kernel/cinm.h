@@ -10,6 +10,17 @@ enum { NFEAT = 8, MAX_CELLS = 256 };
 #define W_MAX 4.0f   /* weight clamp bound */
 #define ETA   0.1f   /* learning rate */
 
+/* adaptive margin-gate tuning (see cinm_update_adaptive) */
+#define MARGIN_NEAR_ZERO 0.25f  /* |margin| below this -> undecided band       */
+#define MARGIN_STRONG    1.00f  /* |margin| at/above this -> confident region  */
+#define CONF_MATURE      0.60f  /* conf at/above this -> cell is "mature"      */
+#define STEP_SMALL       0.5f   /* agree strongly -> damp the step             */
+#define STEP_MEDIUM      1.0f   /* undecided -> nominal step (== constant step) */
+#define STEP_CORRECTIVE  1.5f   /* conflict -> larger corrective step          */
+#define CONF_UP          0.05f  /* confidence gain on agreement                */
+#define CONF_DOWN        0.10f  /* confidence loss on conflict (> CONF_UP)     */
+#define PLAST_FLOOR      0.20f  /* plasticity never falls below this           */
+
 /* Structure-of-arrays: hot fields (scanned/scored) are kept apart from cold
  * provenance so a scan touches only the arrays it needs. A "cell" is an index. */
 typedef struct {
@@ -31,9 +42,35 @@ static inline float clampf(float x, float lo, float hi) {
     return x < lo ? lo : (x > hi ? hi : x);
 }
 
+static inline float absf(float x) { return x < 0.0f ? -x : x; }
+
 void   cinm_init(cinm_map *m);
 size_t cinm_address(cinm_map *m, uint32_t key, bool *was_novel); /* index; MAX_CELLS if full */
 float  cinm_score(const cinm_map *m, size_t i, const float phi[static NFEAT]);
+
+/* Margin of the update direction dphi against cell i: the same dot product as
+ * cinm_score, named for the adaptive-update vocabulary (cinm_update_result). */
+static inline float cinm_margin(const cinm_map *m, size_t i, const float dphi[static NFEAT]) {
+    return cinm_score(m, i, dphi);
+}
+
+/* Result of a core update: margins before/after, how many of the NFEAT weights
+ * saturated at +/-W_MAX, and whether the update fought a mature cell (adaptive). */
+typedef struct {
+    float    margin_before;
+    float    margin_after;
+    uint32_t clamp_count;
+    bool     conflict;
+} cinm_update_result;
+
+/* Constant-step pairwise update (legacy behavior) now reporting metadata; leaves
+ * conf/plast untouched. cinm_update is the void wrapper over this. */
+cinm_update_result cinm_update_pairwise(cinm_map *m, size_t i, const float dphi[static NFEAT], float reward, uint32_t t);
+/* Margin/confidence-gated bounded update: scales the step by alignment and
+ * maturity, evolves conf and (from conf) plast, flags conflict. */
+cinm_update_result cinm_update_adaptive(cinm_map *m, size_t i, const float dphi[static NFEAT], float reward, uint32_t t);
+/* Multiply every in-use cell's weights by clampf(factor,0,1); provenance intact. */
+void   cinm_decay(cinm_map *m, float factor);
 void   cinm_update(cinm_map *m, size_t i, const float dphi[static NFEAT], float reward, uint32_t t);
 void   cinm_explain(const cinm_map *m, size_t i, uint32_t now);
 

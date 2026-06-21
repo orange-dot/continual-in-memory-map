@@ -1,6 +1,7 @@
 # Formal Proof Lane
 
-Status: minimal V0a/V0b Isabelle/HOL proof lane.
+Status: minimal Isabelle/HOL proof lanes — a core cell-update lane and a replay
+sidecar lane.
 
 This proof lane is separate from the executable C smoke tests. It does not claim
 that the C implementation is formally verified.
@@ -25,9 +26,23 @@ The Isabelle session lives under `docs/isabelle/`:
 ISABELLE=/home/dev/sel4/verification/isabelle/bin/isabelle make proof
 ```
 
-`make proof-build` is available as a heavier session build.
+`make proof` loads the core cell-update lane by default. `make proof-build` is a
+heavier session build that checks every theory (core and replay sidecar).
 
 ## Machine-Checked Scope
+
+### Core proof lane
+
+`docs/isabelle/CIM_Core_V0a_CellUpdate.thy` models one cell update as abstract
+scalar arithmetic over the reals (NOT C floats):
+
+- a bounded update stays within `[-wmax, wmax]`
+- lower plasticity commands no larger an (unclamped) step than higher plasticity
+- for a positive feature delta, negative reward does not raise the margin, given
+  the standing invariant that the stored weight is already in `[-wmax, wmax]`
+- decay by a factor in `[0, 1]` never increases the absolute weight
+
+### Replay sidecar proof lane
 
 V0a models only the abstract replay core:
 

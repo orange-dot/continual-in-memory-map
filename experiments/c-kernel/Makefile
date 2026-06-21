@@ -18,6 +18,9 @@ learning: learning_experiment.c cinm.c cinm.h
 txn: txn_check.c cinm.c cinm.h
 	$(CC) $(CFLAGS) -o txn txn_check.c cinm.c
 
+core-check: core_check.c cinm.c cinm.h
+	$(CC) $(CFLAGS) -o core-check core_check.c cinm.c
+
 replay: replay_check.c cinm_log.c cinm.c cinm.h cinm_log.h
 	$(CC) $(CFLAGS) -o replay replay_check.c cinm_log.c cinm.c
 
@@ -51,6 +54,9 @@ run-learning: learning
 run-txn: txn
 	./txn
 
+run-core-check: core-check
+	./core-check
+
 run-replay: replay
 	./replay
 
@@ -67,6 +73,6 @@ native: preference-native
 	./preference-native
 
 clean:
-	rm -f preference bench cmp learning txn replay log-invariants memory hdc-bits preference-native *.o
+	rm -f preference bench cmp learning txn core-check replay log-invariants memory hdc-bits preference-native *.o
 
-.PHONY: run run-bench run-cmp run-learning run-txn run-replay run-log-invariants run-memory run-hdc native vec-report clean
+.PHONY: run run-bench run-cmp run-learning run-txn run-core-check run-replay run-log-invariants run-memory run-hdc native vec-report clean

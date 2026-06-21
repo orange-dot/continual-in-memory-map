@@ -1,5 +1,6 @@
 experiments/c-kernel/bench
 experiments/c-kernel/cmp
+experiments/c-kernel/core-check
 experiments/c-kernel/hdc-bits
 experiments/c-kernel/learning
 experiments/c-kernel/log-invariants

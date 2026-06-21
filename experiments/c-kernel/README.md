@@ -1,15 +1,20 @@
 # CINM C Kernel - First Exploration Substrate
 
 Pure C, no external libraries. This directory is the first executable substrate
-for D011/D012: a small continual preference-learning map with reversible
-self-adaptation and an in-RAM replayable event log. Strictly in-memory — the hot
-path lives in CPU cache and RAM, and there is no disk tier (decision D013).
+for D011/D012: a small continual preference-learning map whose core is an
+adaptive cell — margin, a margin/confidence-gated bounded update, plasticity, and
+decay. An in-RAM replayable event log rides alongside as a sidecar evidence lane.
+Strictly in-memory — the hot path lives in CPU cache and RAM, and there is no
+disk tier (decision D013).
 
 ## Files
 
-- `cinm.h` / `cinm.c` - SoA synaptic map: address, score, bounded pairwise
-  update, explain, whole-map snapshot/restore, speculative transaction, and
-  member-wise equality.
+- `cinm.h` / `cinm.c` - SoA synaptic map and adaptive cell core: address, score,
+  margin, bounded pairwise and margin/confidence-gated adaptive update, decay,
+  explain, whole-map snapshot/restore, speculative transaction, and member-wise
+  equality.
+- `core_check.c` - core adaptive-cell gates: clamp pressure, margin direction,
+  maturity, conflict, and decay retention.
 - `task_preference.c` - contextual preference-memory toy task.
 - `cmp_update.c` - A/B comparison between constant-step update and
   sigma(-margin) update.
@@ -30,6 +35,7 @@ path lives in CPU cache and RAM, and there is no disk tier (decision D013).
 ## Build And Run
 
 ```sh
+make run-core-check     # core adaptive-cell gates (clamp, margin, maturity, conflict, decay)
 make run          # contextual preference task
 make run-cmp      # constant-step vs sigma(-margin) update
 make run-learning # learning-rule experiment set
@@ -49,8 +55,9 @@ All targets build with:
 cc -O2 -Wall -Wextra -Wpedantic -std=c11
 ```
 
-The core kernel remains libm-free; only `cmp_update.c` links `-lm` for `expf`
-and `sqrt`.
+The core kernel — including the adaptive update — remains libm-free; only the
+comparison/experiment harnesses `cmp_update.c` and `learning_experiment.c` link
+`-lm` for `expf` and `sqrt`.
 
 ## Current Expected Results
 
@@ -94,7 +101,24 @@ capacity overflow rejection.
 
 `make run-hdc` should report PASS.
 
-## Event Log Model
+## Core Cell
+
+The core is one adaptive cell per context (an index into the SoA map):
+
+- `cinm_margin` / `cinm_score` — alignment of a cell's weights with a direction.
+- `cinm_update_pairwise` — the bounded constant step (legacy behavior), now also
+  reporting margins, clamp count, and a conflict flag; `cinm_update` wraps it.
+- `cinm_update_adaptive` — scales the step by margin alignment and cell maturity,
+  raises confidence on agreement and lowers it on conflict, and derives
+  plasticity from confidence (floored). Libm-free: the gate is only comparisons.
+- `cinm_decay` — multiplies in-use weights by a factor in [0,1]; provenance intact.
+
+`make run-core-check` asserts the relationships: adaptive clamps less than
+pairwise, negative reward lowers the margin, mature cells move less than fresh,
+conflict fires on a reversed stream, and decay keeps a strong preference. The
+abstract proof lane mirrors these (see `../../docs/FORMAL_PROOF.md`).
+
+## Event Log Model (sidecar)
 
 The replayable source of truth is the layout-independent event:
 
