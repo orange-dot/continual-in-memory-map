@@ -77,7 +77,15 @@ and test a different learning substrate.
 13. `docs/12-memory-model.md`
 14. `docs/13-implementation-backlog-g-k.md`
 15. `docs/14-tail-latency-hedging.md`
-16. `docs/FORMAL_PROOF.md`
+16. `docs/15-drum-vertical-architecture.md`
+17. `docs/16-mvp-milestones.md`
+18. `docs/17-implementation-backlog-l-q.md`
+19. `docs/18-evaluation-and-baseline-plan.md`
+20. `docs/19-claim-boundaries-and-authority.md`
+21. `docs/20-risk-register.md`
+22. `docs/21-glossary.md`
+23. `docs/22-state-primacy-refactor.md`
+24. `docs/FORMAL_PROOF.md`
 
 Deferred / future mapping (not in current RAM-only scope, decision D013):
 
@@ -86,6 +94,15 @@ Deferred / future mapping (not in current RAM-only scope, decision D013):
 ## Layout
 
 - `docs/` records the theory, decisions, and research program.
+- `docs/15`–`docs/21` define the first applied case study — the drum-first
+  vertical (D014): architecture, MVP milestones, backlog L–Q, evaluation, claim
+  boundaries, risks, and glossary.
+- `docs/22` is the state-primacy refactor plan (D018): the staged R0–R5 work that
+  brings the C kernel in line with "the live map is primary; replay is a
+  within-epoch verification property." It lands before the drum vertical consumes
+  the substrate.
+- `AGENTS.md` is the entrypoint for an agent implementing the drum vertical: file
+  map, phase plan, reuse map, hard rules, and verification.
 - `docs/isabelle/` contains the minimal Isabelle/HOL proof lane for abstract
   replay, snapshot-tail equivalence, and checked replay rejection.
 - `experiments/taste-hdc/` preserves the imported CPU + RAM HDC taste-memory
@@ -102,6 +119,8 @@ CINM implementation contract.
 
 - No production implementation claim.
 - No ADG, Drum Engine, PC4MS, or music-specific dependency in the core concept.
+- The drum vertical (D014, docs 15–21) is a deliberate applied case study, fenced
+  by claim boundaries (doc 19); the core concept stays domain-neutral (D001).
 - No claim that this is biologically faithful neuroscience.
 - No claim that this replaces backpropagation for large-scale representation
   learning.

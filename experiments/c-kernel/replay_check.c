@@ -1,4 +1,5 @@
-/* replay_check.c — prove: in-RAM event log = truth; snapshot+replay reconstructs state. */
+/* replay_check.c — prove: within-epoch replay reconstructs state; snapshot+tail
+ * recovers; epoch is explicit map state (D018). */
 #include "cinm.h"
 #include "cinm_log.h"
 #include <stdio.h>
@@ -78,14 +79,23 @@ int main(void) {
         a = cinm_log_replay(&log, &R, base) && cinm_equal(&R, &M);
     }
 
-    /* RECOVER B: pure replay from the log alone (no snapshot). */
+    /* RECOVER B: within-epoch replay from the epoch base (M.base_seq).
+     * Pre-consolidation base_seq == 0, so this equals full replay; R1 names it. */
     cinm_map B;
     cinm_init(&B);
-    bool b = cinm_log_replay(&log, &B, 0) && cinm_equal(&B, &M);
+    B.base_seq = M.base_seq;             /* share the live map's epoch anchor */
+    bool b = cinm_log_replay(&log, &B, M.base_seq) && cinm_equal(&B, &M);
+
+    /* Epoch is real, distinct map state: advancing it is observable and breaks equality. */
+    cinm_map E = M;
+    cinm_epoch_advance(&E, NSTEPS);
+    bool e = E.epoch == M.epoch + 1 && E.base_seq == NSTEPS && !cinm_equal(&E, &M);
 
     printf("snapshot+replay recovers state: %s (base_seq=%u)\n", a ? "PASS" : "FAIL", base);
-    printf("event-log alone recovers state: %s\n", b ? "PASS" : "FAIL");
+    printf("within-epoch replay recovers state: %s (epoch=%u base_seq=%u)\n",
+           b ? "PASS" : "FAIL", M.epoch, M.base_seq);
+    printf("epoch advance is observable: %s\n", e ? "PASS" : "FAIL");
 
     cinm_log_free(&log);
-    return (a && b) ? 0 : 1;
+    return (a && b && e) ? 0 : 1;
 }

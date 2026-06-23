@@ -35,8 +35,9 @@ static bool replay_report_ok(const cinm_replay_report *r) {
     return !r->bad_sequence && !r->unsupported_type && !r->capacity_exceeded;
 }
 
-bool cinm_log_replay_checked(const cinm_log *l, cinm_map *m, uint32_t from_seq,
-                             cinm_replay_report *report) {
+/* Validate the whole log's sequence, but apply only events in [from_seq, to_seq). */
+static bool replay_window(const cinm_log *l, cinm_map *m, uint32_t from_seq, uint32_t to_seq,
+                          cinm_replay_report *report) {
     cinm_replay_report r = {0};
     for (size_t i = 0; i < l->len; i++) {
         const cinm_event *ev = &l->events[i];
@@ -51,7 +52,7 @@ bool cinm_log_replay_checked(const cinm_log *l, cinm_map *m, uint32_t from_seq,
         r.last_seq = ev->seq;
         if (ev->seq == UINT32_MAX) { r.bad_sequence = true; break; }  /* guards +1 */
         if (ev->type != EVENT_PAIRWISE) { r.unsupported_type = true; break; }
-        if (ev->seq >= from_seq) {
+        if (ev->seq >= from_seq && ev->seq < to_seq) {
             size_t idx = cinm_address(m, ev->key, NULL);
             if (idx == MAX_CELLS) { r.capacity_exceeded = true; break; }
             cinm_update(m, idx, ev->dphi, ev->reward, ev->seq);
@@ -63,7 +64,17 @@ bool cinm_log_replay_checked(const cinm_log *l, cinm_map *m, uint32_t from_seq,
     return replay_report_ok(&r);
 }
 
+bool cinm_log_replay_checked(const cinm_log *l, cinm_map *m, uint32_t from_seq,
+                             cinm_replay_report *report) {
+    return replay_window(l, m, from_seq, UINT32_MAX, report);
+}
+
 bool cinm_log_replay(const cinm_log *l, cinm_map *m, uint32_t from_seq) {
     cinm_replay_report r;
-    return cinm_log_replay_checked(l, m, from_seq, &r);
+    return replay_window(l, m, from_seq, UINT32_MAX, &r);
+}
+
+bool cinm_log_replay_range(const cinm_log *l, cinm_map *m, uint32_t from_seq, uint32_t to_seq) {
+    cinm_replay_report r;
+    return replay_window(l, m, from_seq, to_seq, &r);
 }

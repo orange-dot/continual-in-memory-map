@@ -29,6 +29,10 @@ in-RAM event log = replayable truth (within a process)
 snapshot = cheap in-RAM map copy
 ```
 
+> Under D018, "replayable truth" here means *replayable within an epoch* (evidence
+> + recovery), not the substrate's source of truth; the live map is the primary
+> state.
+
 Gate:
 
 ```sh
@@ -80,6 +84,12 @@ Invariant:
 RAM map is the active projection
 the event log is the source of truth (in RAM)
 ```
+
+> **Amended by D018:** the live map is *primary state*, not merely "the active
+> projection"; the event log is demoted to evidence + a bounded undo window, and
+> replay reconstructs the map only within an epoch (a recovery/verification
+> property). The I-lane timing surface is unchanged — only the truth-claim wording
+> is corrected.
 
 Gate:
 
@@ -151,3 +161,9 @@ interactive continual preference learning
   with reversible self-adaptation
   over a replayable in-memory substrate
 ```
+
+## Continued In Doc 17
+
+The next implementation set — sections L–Q for the drum-first vertical MVP
+(D014) — continues this lettered backlog in
+`docs/17-implementation-backlog-l-q.md`.

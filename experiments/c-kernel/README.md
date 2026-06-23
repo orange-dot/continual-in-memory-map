@@ -22,11 +22,20 @@ disk tier (decision D013).
   negative reward, decay, and conflict signals.
 - `txn_check.c` - byte-exact rollback check for rejected in-memory adaptation.
 - `cinm_log.h` / `cinm_log.c` - in-RAM event log: append-only learning events
-  plus strict logical replay (sequence, type, capacity).
-- `replay_check.c` - recovery proof harness: in-RAM snapshot + event replay, and
-  event-log-only replay.
+  plus strict logical replay (sequence, type, capacity, bounded range).
+- `cinm_ledger.h` / `cinm_ledger.c` - in-RAM decision ledger: append-only receipts
+  recording why the map changed (commit/rollback/consolidation) — D018, R2.
+- `cinm_undo.h` / `cinm_undo.c` - bounded undo window: snapshot ring + log replay
+  for "undo last N" within a retention horizon — D018, R4.
+- `replay_check.c` - recovery proof harness: snapshot + within-epoch replay, and the
+  epoch as explicit map state.
 - `log_invariants_check.c` - replay invariant guards: sequence gap, duplicate
   sequence, unsupported type, and capacity overflow.
+- `ledger_check.c` - decision-ledger gate: append-only, ordered, explains forgetting.
+- `consolidate_check.c` - lossy-consolidation gate: evict/freeze/epoch, revival cost,
+  and full-replay-diverges vs within-epoch-matches.
+- `undo_check.c` - bounded-undo gate: within-horizon byte-exact, beyond-horizon and
+  across-consolidation refused.
 - `memory_bench.c` - timing lines for address, score, update, snapshot/restore,
   and in-RAM replay.
 - `hdc_bits.c` - 1024-bit HDC XOR + popcount baseline.
@@ -42,6 +51,9 @@ make run-learning # learning-rule experiment set
 make run-txn      # reversible in-memory transaction check
 make run-replay   # in-RAM snapshot + event replay recovery check
 make run-log-invariants # event-log replay invariant guards
+make run-ledger   # decision-ledger append-only receipts (D018)
+make run-consolidate # lossy consolidation: evict/freeze, revival cost, lossy vs within-epoch (D018)
+make run-undo     # bounded undo: within-horizon exact, beyond/across-epoch refused (D018)
 make run-memory   # address/score/update/snapshot/replay timing lines
 make run-hdc      # bit-HDC XOR + popcount agreement
 make native       # -O3 -march=native behavior check
@@ -91,8 +103,23 @@ committed=false  identical-after-rollback=yes -> PASS
 `make run-replay` should report:
 
 ```text
-snapshot+replay recovers state: PASS
-event-log alone recovers state: PASS
+snapshot+replay recovers state: PASS (base_seq=2001)
+within-epoch replay recovers state: PASS (epoch=0 base_seq=0)
+epoch advance is observable: PASS
+```
+
+`make run-ledger`, `make run-consolidate`, and `make run-undo` exercise the D018
+state-primacy surface and should report PASS on every line:
+
+```text
+ledger append-only and ordered: PASS
+consolidation receipt explains the forgetting: PASS
+evict/freeze/count/epoch: PASS (evicted=2 promoted=1 count 4->2 epoch=1)
+revival to >= 85% of pre-eviction within K=100: PASS
+lossy + within-epoch replay: PASS (full replay diverges=yes, within-epoch matches=yes)
+undo within horizon is byte-exact: PASS
+undo beyond horizon refused: PASS
+undo across consolidation refused: PASS
 ```
 
 `make run-log-invariants` should report PASS for clean replay, sequence gap
@@ -120,13 +147,15 @@ abstract proof lane mirrors these (see `../../docs/FORMAL_PROOF.md`).
 
 ## Event Log Model (sidecar)
 
-The replayable source of truth is the layout-independent event:
+The layout-independent event is evidence, replayable within an epoch:
 
 ```text
 { seq, type, key, reward, dphi[NFEAT] }
 ```
 
-The map in RAM is a derivative working projection. Recovery is:
+The live map is the primary state (D018); the event log is evidence + a
+within-epoch undo/recovery trail, not a source of truth the map is rebuilt from.
+Recovery is:
 
 ```text
 take an in-RAM snapshot (whole-map copy) + remember the log position
@@ -146,9 +175,12 @@ reproducible on the current build.
 This is a strictly in-memory PoC. It proves the local research invariant:
 
 ```text
-in-RAM event log = replayable truth (within a session)
+live map         = primary state (D018)
+in-RAM event log = evidence + within-epoch replay (recovery, not source of truth)
+decision ledger  = append-only receipts of why the map changed (audit)
 snapshot         = cheap in-RAM map copy
 rollback         = cheap in-memory reversibility
+consolidation    = lossy forgetting past the epoch boundary; undo is windowed
 ```
 
 Durable cross-restart persistence (append-only SSD log, snapshots, manifests,

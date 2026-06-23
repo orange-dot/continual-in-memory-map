@@ -159,8 +159,10 @@ conflict handling
 explainability
 ```
 
-CIM's core invariant is that the event log is the source of truth and the map is
-a derivative projection. Tail-latency replication should not weaken that model.
+Under D018, CIM's primary state is the live map; reversibility comes from
+snapshots + a bounded undo window, and the event log is evidence + within-epoch
+replay (not a source of truth the map is rebuilt from). Tail-latency replication
+should not weaken transactions, rollback, or within-epoch replay.
 
 ### SSD / `mmap` Page Faults
 

@@ -34,8 +34,11 @@ typedef struct {
     uint32_t born[MAX_CELLS];
     uint32_t last_touched[MAX_CELLS];
     bool     in_use[MAX_CELLS];
+    bool     frozen[MAX_CELLS];   /* frozen by consolidation: decay/eviction exempt (D018) */
     size_t   count;
     uint32_t t;            /* logical event clock */
+    uint32_t epoch;        /* consolidation generation; 0 until first consolidate (D018) */
+    uint32_t base_seq;     /* first seq of the current epoch; within-epoch replay anchor */
 } cinm_map;
 
 static inline float clampf(float x, float lo, float hi) {
@@ -80,9 +83,38 @@ void   cinm_restore(cinm_map *m, const cinm_map *buf);
 /* Snapshot, run candidate (applies + evaluates, returns keep), commit or restore. */
 bool   cinm_transaction(cinm_map *m, bool (*candidate)(cinm_map *, void *), void *ctx);
 
+/* Advance the epoch: set the within-epoch replay anchor to new_base_seq and bump the
+ * generation. Consolidation (D018) calls this after discarding pre-boundary state;
+ * within-epoch replay/undo then runs from base_seq, not from seq 0. */
+void   cinm_epoch_advance(cinm_map *m, uint32_t new_base_seq);
+
+/* Consolidation policy (D018, R3). Exact-symbolic keys mean there is no redundancy to
+ * merge, so consolidation is evict-dead + freeze-strong only; schema/merge compression
+ * waits on nearest-neighbour addressing (doc 06, R3.5). */
+typedef struct {
+    float    evict_floor;      /* evict candidates have max|w| <= this (decay-emptied) ... */
+    float    evict_conf_max;   /*   ... and conf <= this (weak) ...                        */
+    uint32_t evict_idle_age;   /*   ... and (now - last_touched) >= this (stale).          */
+    float    promote_conf;     /* freeze candidates have conf >= this ...                  */
+    uint32_t promote_evidence; /*   ... and evidence >= this (well-corroborated).          */
+} cinm_consolidate_policy;
+
+typedef struct {
+    uint32_t evicted;          /* dead cells dropped (lossy)                  */
+    uint32_t promoted;         /* strong cells frozen (protected; not lossy)  */
+} cinm_consolidate_result;
+
+/* Lossy consolidation: freeze the strong, evict the dead-and-stale, compact the map,
+ * and advance the epoch to new_base_seq. Frozen cells are never evicted and are exempt
+ * from decay. The caller records a receipt in the decision ledger (R2). After this,
+ * full-log replay no longer reconstructs the map; within-epoch replay from a
+ * post-consolidation snapshot does. */
+cinm_consolidate_result cinm_consolidate(cinm_map *m, const cinm_consolidate_policy *p,
+                                         uint32_t now, uint32_t new_base_seq);
+
 /* Member-wise semantic equality: count, clock, and the full arrays (cinm_init
  * zeroes unused cells), ignoring struct padding. Verifies that rollback and
- * store replay reconstruct the same map. */
+ * within-epoch replay reconstruct the same map. */
 bool   cinm_equal(const cinm_map *a, const cinm_map *b);
 
 #endif /* CINM_H */

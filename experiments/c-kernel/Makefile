@@ -30,6 +30,15 @@ log-invariants: log_invariants_check.c cinm_log.c cinm.c cinm.h cinm_log.h
 memory: memory_bench.c cinm_log.c cinm.c cinm.h cinm_log.h
 	$(CC) $(CFLAGS) -o memory memory_bench.c cinm_log.c cinm.c
 
+ledger: ledger_check.c cinm_ledger.c cinm_ledger.h
+	$(CC) $(CFLAGS) -o ledger ledger_check.c cinm_ledger.c
+
+consolidate: consolidate_check.c cinm.c cinm_log.c cinm_ledger.c cinm.h cinm_log.h cinm_ledger.h
+	$(CC) $(CFLAGS) -o consolidate consolidate_check.c cinm.c cinm_log.c cinm_ledger.c
+
+undo: undo_check.c cinm.c cinm_log.c cinm_undo.c cinm.h cinm_log.h cinm_undo.h
+	$(CC) $(CFLAGS) -o undo undo_check.c cinm.c cinm_log.c cinm_undo.c
+
 hdc-bits: hdc_bits.c
 	$(CC) $(CFLAGS) -o hdc-bits hdc_bits.c
 
@@ -66,6 +75,15 @@ run-log-invariants: log-invariants
 run-memory: memory
 	./memory
 
+run-ledger: ledger
+	./ledger
+
+run-consolidate: consolidate
+	./consolidate
+
+run-undo: undo
+	./undo
+
 run-hdc: hdc-bits
 	./hdc-bits
 
@@ -73,6 +91,6 @@ native: preference-native
 	./preference-native
 
 clean:
-	rm -f preference bench cmp learning txn core-check replay log-invariants memory hdc-bits preference-native *.o
+	rm -f preference bench cmp learning txn core-check replay log-invariants memory ledger consolidate undo hdc-bits preference-native *.o
 
-.PHONY: run run-bench run-cmp run-learning run-txn run-core-check run-replay run-log-invariants run-memory run-hdc native vec-report clean
+.PHONY: run run-bench run-cmp run-learning run-txn run-core-check run-replay run-log-invariants run-memory run-ledger run-consolidate run-undo run-hdc native vec-report clean

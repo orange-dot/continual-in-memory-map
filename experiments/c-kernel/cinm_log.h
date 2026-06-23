@@ -1,6 +1,7 @@
-/* cinm_log.h — in-RAM event log: append-only learning events, replayable truth.
- * RAM is the only tier; the map is a projection of this log, reconstructed by
- * deterministic replay. No disk, no persistence across process restart. */
+/* cinm_log.h — in-RAM event log: append-only learning events, evidence + a
+ * within-epoch undo/recovery trail. The live map is the primary state (D018);
+ * replay reconstructs it only within an epoch, not as a source of truth. No disk,
+ * no persistence across process restart. */
 #ifndef CINM_LOG_H
 #define CINM_LOG_H
 
@@ -9,7 +10,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-/* A layout-independent learning event — the replayable source of truth.
+/* A layout-independent learning event — evidence, replayable within an epoch.
  * Records semantics, not in-memory layout, so it survives kernel refactors. */
 typedef struct {
     uint32_t seq;
@@ -48,5 +49,9 @@ bool cinm_log_append(cinm_log *l, const cinm_event *ev);
 bool cinm_log_replay(const cinm_log *l, cinm_map *m, uint32_t from_seq);
 bool cinm_log_replay_checked(const cinm_log *l, cinm_map *m, uint32_t from_seq,
                              cinm_replay_report *report);
+
+/* Replay only events in [from_seq, to_seq) into m (same strict whole-log sequence
+ * checking). Used for bounded undo: reconstruct the map as of to_seq events. */
+bool cinm_log_replay_range(const cinm_log *l, cinm_map *m, uint32_t from_seq, uint32_t to_seq);
 
 #endif /* CINM_LOG_H */

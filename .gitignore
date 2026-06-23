@@ -1,13 +1,16 @@
 experiments/c-kernel/bench
 experiments/c-kernel/cmp
+experiments/c-kernel/consolidate
 experiments/c-kernel/core-check
 experiments/c-kernel/hdc-bits
 experiments/c-kernel/learning
+experiments/c-kernel/ledger
 experiments/c-kernel/log-invariants
 experiments/c-kernel/memory
 experiments/c-kernel/preference
 experiments/c-kernel/preference-native
 experiments/c-kernel/replay
 experiments/c-kernel/txn
+experiments/c-kernel/undo
 experiments/c-kernel/*.o
 .isabelle-user/

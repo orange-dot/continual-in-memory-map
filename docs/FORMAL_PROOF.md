@@ -83,3 +83,33 @@ implement: append-only events, deterministic left-to-right replay, and
 snapshot-plus-tail reconstruction. If the C log starts filtering, reordering,
 coalescing, or partially accepting invalid input, this proof lane must be
 extended before stronger claims are made.
+
+## Scope Under D018 (State Primacy)
+
+Decision D018 demotes full-log replay from "the source of truth" to a within-epoch
+recovery and verification property; the live map is primary. This *narrows the
+interpretation* of the replay lane — it does not invalidate it:
+
+- The checked theorems (`CIM_V0a_Log.thy`) prove that **snapshot-tail replay
+  equals full replay** and that splitting a valid log preserves tail validity.
+  Under D018 these are read as **within-epoch determinism** lemmas — exactly the
+  property the M1 replay gate now claims — not as a proof that the map's truth is
+  the log.
+- Consolidation is deliberately **outside the reversible envelope**: it is
+  genuinely lossy, so there is no proof obligation (now or planned) that
+  post-consolidation state is reconstructable from the surviving log. The
+  bounds/reversibility claims hold **within the retention window** between
+  consolidations.
+- No theorem is removed and no new machine-checked claim is added; this note only
+  records the scope D018 puts on what the existing replay lane already means.
+
+## Planned Extension (Drum Vertical, D014)
+
+Backlog sections P and Q (`docs/17`) describe a *planned* extension of the abstract
+invariants to the drum vertical's self-adaptation path: bounded operator effects,
+rollback restores prior state, and deterministic decision replay. The extension
+targets the abstract model only — bounds, reversibility, replay — explicitly NOT
+"the drums sound good", which is a human aesthetic judgement and never a proof
+claim (doc 19, doc 21). It is gated by the `formal-proof-readiness` posture: no
+machine-checked claim is made until the theory actually checks it. Nothing here is
+proven yet; this note records the intended direction, not a result.

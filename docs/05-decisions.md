@@ -264,3 +264,198 @@ Consequence:
 - The human-facing acronym becomes **CIM**. The `cinm_` code prefix is retained
   as a stable opaque identifier (renaming every symbol across the kernel is pure
   churn for no benefit); it is no longer re-derived from the project name.
+
+## D014: Drum-First Vertical Slice As The First Case Study
+
+Decision:
+
+The first applied CIM work is a drum-first vertical slice: a taste-driven MIDI
+drum generator built as one product, with CIM concepts (cells, event log,
+reversible transaction, archive, gate) as its internal structure. The
+domain-neutral substrate is extracted later, if and when the vertical proves it
+out.
+
+This deliberately amends D001 (domain-neutral first) and the doc 07 ordering
+("music only after toy tasks"). It does not delete them; it scopes them.
+
+Reason:
+
+The lab already contains all three layers of this system, in three vocabularies:
+
+```text
+evidence / preference   aig-engine aig_ranker_preferences.py
+                        (pairwise, append-only, train/slate_eval, catch-trials)
+Darwinian generator     neuro-simbolic internal/evolution (MAP-Elites)
+gate / critic + human   pc4-microkit-studio drummer player-model
+                        (ANTI_PATTERNS, GOLDEN_SET, OUTPUT_CONTRACT)
+                        + music-specific-ai-concepts DRUMMER_BASSIST_V0
+```
+
+Building the vertical is mostly wiring these existing assets onto the existing C
+kernel — the fastest path to a real artifact.
+
+Consequence:
+
+- The doc 07 contamination risk is accepted, not ignored. M1 measures against a
+  simple online baseline and uses held-out evaluation so drum heuristics cannot
+  masquerade as substrate wins (docs 16, 18, 19, 20).
+- A neutral-substrate extraction stays a tracked future move (doc 19), not an MVP
+  goal.
+- The substrate's domain-neutral charter (D001) still governs that eventual
+  extraction. The vertical lives inside this repo but is fenced by claim
+  boundaries (doc 19).
+
+## D015: Reuse Existing Lab Assets Over Rebuilding
+
+Decision:
+
+The vertical consumes existing lab assets instead of re-implementing them:
+
+- aig-engine `aig_ranker` JSONL is the event stream; CIM does not invent a new
+  preference format.
+- only the MAP-Elites *shape* is re-implemented in the vertical's own language;
+  the neuro-simbolic Go crate is not a dependency (consistent with doc 10).
+- the drummer player-model ANTI_PATTERNS / GOLDEN_SET / catch-trials serve as the
+  gate and held-out evaluator.
+
+Reason:
+
+These assets already encode CIM's own values (pairwise-first, append-only,
+proposer ≠ grader, human-gated). Rebuilding them would duplicate work and risk
+divergence.
+
+Consequence:
+
+- doc 15 records an integration map with exact source paths and pinned schema ids.
+- The vertical depends on the *contracts* of these assets, not on importing their
+  code wholesale; schema ids are checked during verification.
+
+## D016: Staged MVP — Proof Before Sound
+
+Decision:
+
+The MVP is two milestones with separate acceptance gates:
+
+```text
+M1 substrate-proof   CIM invariants hold on a drum-shaped preference task (numbers)
+M2 audible generator a taste-driven groove generator you can hear (sound)
+```
+
+M2 work does not begin until the M1 gate passes.
+
+Reason:
+
+The substrate claim and the musical claim are different claims with different
+evidence. Proving the invariants first prevents an audible-but-unattributable demo
+from standing in for substrate evidence.
+
+Consequence:
+
+- doc 16 defines both gates; doc 17 tags each backlog section [M1] and/or [M2].
+- M1 reuses already-green kernel gates (`run-txn`, `run-replay`,
+  `run-log-invariants`).
+
+## D017: Language Line For The Vertical (Confirm At Code Kickoff)
+
+Decision (recommended; confirm when implementation begins):
+
+- CIM core stays **C** (D011 — it already works).
+- Vertical glue and evaluation are **Python** (reuse the existing Python ranker,
+  the `taste-hdc` seed, and the EGMD tooling).
+- MAP-Elites is re-implemented in C or Python for the MVP.
+- Rust / aig-engine deep integration is deferred to post-MVP.
+
+Reason:
+
+The reusable assets (ranker, `taste-hdc`, EGMD importer) are Python; the substrate
+core is C. A thin Python glue layer over the C kernel reuses the most for the least
+new code. Rust integration with aig-engine is valuable but off the MVP critical
+path.
+
+Consequence:
+
+- This is the one open knob in the plan; it stays documentation-only until code
+  begins.
+- The four language lines (D006) still stand; this only fixes the order for the
+  vertical.
+
+## D018: State Is Primary; Replay Is A Verification Property, Not The Source Of Truth
+
+Decision:
+
+The live map is the primary truth — operationally (immediate readout reads it
+directly) and as the system's actual state. Full-log replay is **demoted** from
+"the source of truth" to a *within-process, within-epoch* recovery and
+verification property, plus a lab reproducibility instrument. It is not the
+normal mode of operation; the map is never rebuilt from the log on the hot path.
+
+The event log's role splits in two:
+
+```text
+decision / evidence ledger   append-only receipts: why each commit or
+                             consolidation happened (audit; long-lived)
+bounded undo window          snapshot ring + short delta tail, sized to the
+                             declared retention horizon (reversal; bounded)
+```
+
+Consolidation is **genuinely lossy** — as aggressive as a real learner needs.
+After a consolidation boundary the map is no longer reconstructable from the
+surviving log. Reversibility is guaranteed only **within the retention window**;
+beyond it, state is committed by design.
+
+This amends the "source of truth" framing in doc 12, doc 13 (I-lane), and the
+c-kernel surface, and the "snapshots are acceleration artifacts / map is a
+derivative" half of D008. It keeps D008's "event log = evidence source" (that is
+exactly the demoted role) and extends D010 (consolidation is recorded) with "and
+is deliberately irreversible past its boundary."
+
+Reason:
+
+CIM is a *learner*, not a *ledger*. The discriminating question for event
+sourcing is whether state is *defined by* events or is a *sufficient statistic*
+of them. In a ledger (bank, git, CRDT) history is authoritative by policy and
+state is a materialized view. In a learner the cell *is* the compressed
+sufficient statistic of the evidence that addressed it — that local compression
+is the substrate's reason to exist (D002, D003). Re-deriving the map from raw
+events is a global recompute pass, the exact operation the project rejects
+(README, D002); it contradicts bounded forgetting (an unbounded ever-growing log
+is more memory than the map it rebuilds); and it breaks the moment consolidation
+is genuinely lossy.
+
+The kernel already keeps the two mechanisms separate: `cinm_snapshot` /
+`cinm_restore` carries transaction rollback (`run-txn`); full replay is the
+separate recovery path (`run-replay`). Neither the operational loop nor the
+reversibility story rides on full-log replay — only recovery and audit do. So
+"replay = truth" was over-claimed doctrine, not a load-bearing code property.
+
+Consequence:
+
+- **The identity claim survives intact.** Operator-level reversibility (Loop 2,
+  "reversible self-adaptation", D012) is transaction/snapshot-scoped and
+  unaffected by consolidation aggressiveness — the speculative transaction
+  snapshots, tries, evaluates on held-out, and commits or restores within one
+  epoch.
+- **What is windowed is taste-history undo** (Loop 1, "undo N picks"): aggressive
+  forgetting shortens it. A real learner *should* lose the ability to undo a habit
+  it has consolidated; this is correct, not a regression — but it must be stated,
+  or "reversible" is false for N beyond the window.
+- **decay vs consolidation are distinct.** Decay = soft, gradual, in-window.
+  Consolidation = hard, structural, irreversible past the boundary. This answers
+  doc 06's "Can consolidation be reversible?" with *no, by design*.
+- **Every irreversible truth-change leaves a receipt** in the decision ledger:
+  operator commits/rollbacks AND consolidation events. You forget the content, you
+  keep the receipt that you forgot — that is what keeps aggressive forgetting
+  auditable (D008, D010).
+- **The M1 replay gate (doc 16, gate 5) re-scopes to within-epoch determinism**
+  (replay of the tail since the last consolidation reconstructs the current map) —
+  exactly what the Isabelle snapshot-tail lane already proves. Demotion does not
+  weaken the gate; it scopes it honestly.
+- **The forgetting probe (doc 18) is the upper bound on consolidation
+  aggressiveness:** aggressive on redundant/stable state, never enough to fail the
+  probe (catastrophic forgetting). "As aggressive as needed" stops at "as
+  aggressive as passes the probe."
+- Ripples: doc 12 (memory-model wording), doc 13 (I-lane invariant), doc 06
+  (consolidation question), FORMAL_PROOF (replay theorems are within-epoch
+  determinism; consolidation is outside the reversible envelope), and strengthens
+  doc 19 claim boundaries. The c-kernel doc/comment surface is corrected as part
+  of the refactor that follows this decision.

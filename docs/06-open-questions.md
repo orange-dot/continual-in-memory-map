@@ -12,7 +12,9 @@
 
 ## Addressing Questions
 
-- Exact symbolic keys first, or continuous nearest-neighbor keys first?
+- Exact symbolic keys first, or continuous nearest-neighbor keys first? (This now
+  also gates schema/merge consolidation — R3.5, doc 22: prototype compression needs
+  nearest-neighbour addressing; exact keys cap consolidation at evict + freeze.)
 - Should addressing be learned or fixed?
 - How many cells should activate per event?
 - How should novelty be detected?
@@ -33,7 +35,13 @@
 - Which state should decay first: weights, confidence, eligibility, or
   activation priority?
 - How should the system distinguish useful forgetting from harmful forgetting?
-- Can consolidation be reversible?
+  (Partial answer, D018 / doc 22 R3: useful = evicting dead contexts that decay has
+  already emptied; harmful = caught by the consolidation sub-probe, doc 18.)
+- ~~Can consolidation be reversible?~~ **Resolved (D018): no — by design.
+  Consolidation is genuinely lossy (as aggressive as a real learner needs);
+  reversibility is guaranteed only within the retention window, and each
+  consolidation leaves an audit receipt. Decay is the soft, in-window forgetting;
+  consolidation is the hard, irreversible-past-boundary commit.**
 - What makes a learned pattern stable enough to promote?
 - Should consolidation produce human-readable rules, compact cells, or both?
 
@@ -65,4 +73,23 @@
 - How much biological analogy is useful before it becomes misleading?
 - What would count as a meaningful negative result?
 - What would justify applying the substrate to a real domain?
+
+## Drum Vertical Questions (D014)
+
+The drum-first vertical (docs 15–21) is the answer-in-progress to "what would
+justify applying the substrate to a real domain?". It will test several questions
+above on a drum-shaped task:
+
+- Addressing: do exact symbolic law-axis keys suffice before nearest-neighbor keys?
+- Learning: is pairwise feedback enough for the first drum task? (H1, doc 03)
+- Evaluation: what baseline is fair? (a simple online learner, doc 18)
+- Forgetting: which drum task reveals catastrophic forgetting most clearly?
+  (the fill-heavy vs sparse probe, doc 18)
+
+New questions the vertical raises:
+
+- Which niche axes make MAP-Elites diversity musically meaningful, not just varied?
+- Is HDC groove encoding stronger or weaker than the scalar phi path?
+- How much of the kernel path is drum-agnostic enough to extract later (doc 19)?
+- Can tie / neither preference labels update state without oscillation?
 

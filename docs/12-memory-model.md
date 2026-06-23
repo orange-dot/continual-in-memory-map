@@ -11,14 +11,21 @@ this document originally covered is parked under
 
 Guiding principle: you do not "fill" the caches — the CPU manages them. You
 influence behavior through **data layout, access order, batch size, hot/cold
-split, and how many threads write to what**. The in-RAM **event log is the source
-of truth; the map is a derivative working projection** reconstructed by replay.
+split, and how many threads write to what**.
+
+> **Amended by D018 (state primacy).** The live **map is the primary state** —
+> operationally (immediate readout reads it directly) and as the system's actual
+> truth. The in-RAM event log is **evidence + a bounded undo window**, not the
+> definition of the map; full replay **reconstructs the map only within an epoch**
+> (since the last consolidation) and is a recovery/verification property, not the
+> normal mode of operation. Lines below that call the log "the source of truth"
+> predate D018 and are read in that demoted sense.
 
 ## The tiers
 
 ```text
 L1 / L2 / L3 = the CPU's current thinking (execution locality)
-RAM          = active working projection + the event log (source of truth)
+RAM          = active map (primary state) + the event log (evidence + bounded undo)
 ```
 
 | tier | CINM role |
@@ -60,12 +67,12 @@ touches a contiguous ~1 KB region instead of striding 60 B AoS cells, so scans
 do not drag cold fields through cache. Tradeoff: whole-map snapshot stays a
 trivial `memcpy` of the ~15 KiB POD; single-cell rollback becomes a row gather.
 
-## In-RAM event log — replayable truth
+## In-RAM event log — evidence + bounded undo (replayable within an epoch)
 
 ```text
-The map state is a derivative.
-The in-RAM event log is the truth.
-recover = take an in-RAM snapshot + replay events after it.
+The live map is the primary state.
+The in-RAM event log is evidence + a bounded undo window.
+recover (within an epoch) = take an in-RAM snapshot + replay events after it.
 ```
 
 This is the reversible-self-adaptation model (D012). Each adaptation is a
@@ -104,7 +111,8 @@ io_uring/SPDK) is deferred — see `docs/future/ssd-store-linux-layer.md`.
 
 ```text
 CPU caches = execution locality.
-RAM        = active working projection + replayable event log (source of truth).
+RAM        = active map (primary state) + event log (evidence + bounded undo;
+             replay is within-epoch recovery, not the source of truth — D018).
 ```
 
 With this in the model, CINM is a layered in-memory machine where every learned
