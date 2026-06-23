@@ -45,6 +45,12 @@ taste: taste_check.c cinm.c cinm_log.c cinm_undo.c cinm.h cinm_log.h cinm_undo.h
 selfadapt: selfadapt_check.c cinm.c cinm_ledger.c cinm_selfadapt.c cinm.h cinm_ledger.h cinm_selfadapt.h
 	$(CC) $(CFLAGS) -o selfadapt selfadapt_check.c cinm.c cinm_ledger.c cinm_selfadapt.c
 
+drum-adapter: drum_adapter_check.c cinm_drum_adapter.c cinm.c cinm_log.c cinm.h cinm_log.h cinm_drum_adapter.h
+	$(CC) $(CFLAGS) -o drum-adapter drum_adapter_check.c cinm_drum_adapter.c cinm.c cinm_log.c
+
+drum-features: drum_features_check.c cinm_drum_adapter.c cinm.c cinm_log.c cinm.h cinm_log.h cinm_drum_adapter.h
+	$(CC) $(CFLAGS) -o drum-features drum_features_check.c cinm_drum_adapter.c cinm.c cinm_log.c
+
 hdc-bits: hdc_bits.c
 	$(CC) $(CFLAGS) -o hdc-bits hdc_bits.c
 
@@ -96,6 +102,12 @@ run-taste-loop: taste
 run-self-adapt: selfadapt
 	./selfadapt
 
+run-drum-adapter: drum-adapter
+	./drum-adapter
+
+run-drum-features: drum-features
+	./drum-features
+
 run-hdc: hdc-bits
 	./hdc-bits
 
@@ -103,6 +115,6 @@ native: preference-native
 	./preference-native
 
 clean:
-	rm -f preference bench cmp learning txn core-check replay log-invariants memory ledger consolidate undo taste selfadapt hdc-bits preference-native *.o
+	rm -f preference bench cmp learning txn core-check replay log-invariants memory ledger consolidate undo taste selfadapt drum-adapter drum-features hdc-bits preference-native *.o
 
-.PHONY: run run-bench run-cmp run-learning run-txn run-core-check run-replay run-log-invariants run-memory run-ledger run-consolidate run-undo run-taste-loop run-self-adapt run-hdc native vec-report clean
+.PHONY: run run-bench run-cmp run-learning run-txn run-core-check run-replay run-log-invariants run-memory run-ledger run-consolidate run-undo run-taste-loop run-self-adapt run-drum-adapter run-drum-features run-hdc native vec-report clean

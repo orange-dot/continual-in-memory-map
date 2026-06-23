@@ -42,6 +42,12 @@ disk tier (decision D013).
   context-blind baseline, old-context retention, byte-exact undo.
 - `selfadapt_check.c` - Godel-Darwin self-adaptation gate (vertical P): self-tunes the decay
   rate on a drifting taste, held-out anti-hack, ledger receipts, reversible.
+- `cinm_drum_adapter.h` / `cinm_drum_adapter.c` - the drum-aware ingestion seam (vertical L+M):
+  flat `drum_events` (real aig_ranker schema) -> cinm_events, train/slate split, dedup by
+  record_id, winner+confidence -> reward/dphi. Library-free line reader.
+- `drum_adapter_check.c` / `drum_features_check.c` - gates: golden cinm_event sequence, phase
+  split, dedup, no drum-symbol leak (L); phi/dphi determinism + sparse activation (M).
+- `testdata/drum_events.sample` - committed real-schema fixture for the adapter gates.
 - `memory_bench.c` - timing lines for address, score, update, snapshot/restore,
   and in-RAM replay.
 - `hdc_bits.c` - 1024-bit HDC XOR + popcount baseline.
@@ -62,6 +68,8 @@ make run-consolidate # lossy consolidation: evict/freeze, revival cost, lossy vs
 make run-undo     # bounded undo: within-horizon exact, beyond/across-epoch refused (D018)
 make run-taste-loop  # drum taste loop: context-addressing beats blind baseline (vertical O)
 make run-self-adapt  # Godel-Darwin: self-tunes decay on drift, held-out gate (vertical P)
+make run-drum-adapter   # real-schema drum_events -> cinm_events: golden vector, phase, dedup (L)
+make run-drum-features  # phi/dphi determinism + sparse activation (M)
 make run-memory   # address/score/update/snapshot/replay timing lines
 make run-hdc      # bit-HDC XOR + popcount agreement
 make native       # -O3 -march=native behavior check
@@ -141,6 +149,18 @@ self-adaptation beats no-forgetting baseline: PASS (best_decay=0.930 best=0.871 
 every proposal leaves a ledger receipt: PASS (commits=17 rollbacks=31 len=48)
 held-out rejects extreme operators: PASS
 rejected operator is byte-exactly reversible: PASS
+```
+
+`make run-drum-adapter` and `make run-drum-features` ingest the real-schema fixture
+(`testdata/drum_events.sample`) and should report PASS on every line:
+
+```text
+golden cinm_event sequence: PASS (train=6 slate=3 dup=1 tie/neither=2)
+train/slate phase split + per-set seq: PASS
+duplicate record_id not double-applied: PASS
+kernel sees only neutral cinm_events: PASS
+phi/dphi deterministic across runs: PASS
+sparse activation (cells=3 << MAX_CELLS=256): PASS
 ```
 
 `make run-log-invariants` should report PASS for clean replay, sequence gap

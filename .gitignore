@@ -2,6 +2,8 @@ experiments/c-kernel/bench
 experiments/c-kernel/cmp
 experiments/c-kernel/consolidate
 experiments/c-kernel/core-check
+experiments/c-kernel/drum-adapter
+experiments/c-kernel/drum-features
 experiments/c-kernel/hdc-bits
 experiments/c-kernel/learning
 experiments/c-kernel/ledger
