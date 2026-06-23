@@ -8,6 +8,7 @@ void cinm_init(cinm_map *m) {
     /* Zero the whole map, not just in_use: unused cells must be deterministic so
      * raw snapshots and content hashes are reproducible. */
     memset(m, 0, sizeof *m);
+    m->eta = ETA;          /* runtime learning rate; self-adaptation (P) may tune it */
 }
 
 size_t cinm_address(cinm_map *m, uint32_t key, bool *was_novel) {
@@ -59,8 +60,8 @@ static uint32_t apply_step(cinm_map *m, size_t i, const float dphi[static NFEAT]
 cinm_update_result cinm_update_pairwise(cinm_map *m, size_t i, const float dphi[static NFEAT], float reward, uint32_t t) {
     assert(i < m->count);
     float margin_before = cinm_score(m, i, dphi);
-    /* same operand grouping as the legacy update: ((ETA*reward)*plast) then *dphi[k] */
-    uint32_t clamps = apply_step(m, i, dphi, ETA * reward * m->plast[i]);
+    /* same operand grouping as the legacy update: ((eta*reward)*plast) then *dphi[k] */
+    uint32_t clamps = apply_step(m, i, dphi, m->eta * reward * m->plast[i]);
     float margin_after = cinm_score(m, i, dphi);
     m->evidence[i]++;
     m->last_touched[i] = t;
@@ -91,7 +92,7 @@ cinm_update_result cinm_update_adaptive(cinm_map *m, size_t i, const float dphi[
         scale = STEP_MEDIUM;                        /* weak signal / default */
     }
 
-    uint32_t clamps = apply_step(m, i, dphi, ETA * reward * m->plast[i] * scale);
+    uint32_t clamps = apply_step(m, i, dphi, m->eta * reward * m->plast[i] * scale);
     float margin_after = cinm_score(m, i, dphi);
 
     /* Confidence rises on agreement, falls mildly on conflict; plasticity follows
@@ -218,6 +219,7 @@ bool cinm_equal(const cinm_map *a, const cinm_map *b) {
         && a->t == b->t
         && a->epoch == b->epoch
         && a->base_seq == b->base_seq
+        && a->eta == b->eta
         && memcmp(a->key, b->key, sizeof a->key) == 0
         && memcmp(a->w, b->w, sizeof a->w) == 0
         && memcmp(a->plast, b->plast, sizeof a->plast) == 0

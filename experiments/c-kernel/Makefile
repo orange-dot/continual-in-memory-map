@@ -39,6 +39,12 @@ consolidate: consolidate_check.c cinm.c cinm_log.c cinm_ledger.c cinm.h cinm_log
 undo: undo_check.c cinm.c cinm_log.c cinm_undo.c cinm.h cinm_log.h cinm_undo.h
 	$(CC) $(CFLAGS) -o undo undo_check.c cinm.c cinm_log.c cinm_undo.c
 
+taste: taste_check.c cinm.c cinm_log.c cinm_undo.c cinm.h cinm_log.h cinm_undo.h
+	$(CC) $(CFLAGS) -o taste taste_check.c cinm.c cinm_log.c cinm_undo.c
+
+selfadapt: selfadapt_check.c cinm.c cinm_ledger.c cinm_selfadapt.c cinm.h cinm_ledger.h cinm_selfadapt.h
+	$(CC) $(CFLAGS) -o selfadapt selfadapt_check.c cinm.c cinm_ledger.c cinm_selfadapt.c
+
 hdc-bits: hdc_bits.c
 	$(CC) $(CFLAGS) -o hdc-bits hdc_bits.c
 
@@ -84,6 +90,12 @@ run-consolidate: consolidate
 run-undo: undo
 	./undo
 
+run-taste-loop: taste
+	./taste
+
+run-self-adapt: selfadapt
+	./selfadapt
+
 run-hdc: hdc-bits
 	./hdc-bits
 
@@ -91,6 +103,6 @@ native: preference-native
 	./preference-native
 
 clean:
-	rm -f preference bench cmp learning txn core-check replay log-invariants memory ledger consolidate undo hdc-bits preference-native *.o
+	rm -f preference bench cmp learning txn core-check replay log-invariants memory ledger consolidate undo taste selfadapt hdc-bits preference-native *.o
 
-.PHONY: run run-bench run-cmp run-learning run-txn run-core-check run-replay run-log-invariants run-memory run-ledger run-consolidate run-undo run-hdc native vec-report clean
+.PHONY: run run-bench run-cmp run-learning run-txn run-core-check run-replay run-log-invariants run-memory run-ledger run-consolidate run-undo run-taste-loop run-self-adapt run-hdc native vec-report clean

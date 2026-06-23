@@ -58,6 +58,13 @@ All of the following must hold; any FAIL blocks M2.
 Gates 4–5 are already green in the kernel and are inherited, not rebuilt. Gates
 1–3 and 6–8 are the new M1 work (backlog L, M, O, P, Q-eval).
 
+Status (synthetic): on synthetic drum-shaped tasks all eight gates are green —
+1–2 via `run-taste-loop`, 3 via the consolidation sub-probe (`run-consolidate`) +
+retention, 4–5 via `run-txn` / `run-replay` / `run-log-invariants`, 6 via
+`run-ledger`, 7 via `run-self-adapt` (held-out, proposer ≠ grader), 8 via the core
+bounds gates. The remaining M1 work is the **real-data adapter** (L/M): feeding the
+loop real `aig_ranker` preferences instead of synthetic.
+
 ### M1 is explicitly NOT
 
 - not audible (no render, no MIDI required to pass M1)

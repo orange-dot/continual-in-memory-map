@@ -36,6 +36,12 @@ disk tier (decision D013).
   and full-replay-diverges vs within-epoch-matches.
 - `undo_check.c` - bounded-undo gate: within-horizon byte-exact, beyond-horizon and
   across-consolidation refused.
+- `cinm_selfadapt.h` / `cinm_selfadapt.c` - operator self-adaptation archive
+  (MAP-Elites shape): value-bucket niches, elite-per-niche, discarded lineage — vertical P.
+- `taste_check.c` - drum-shaped taste-loop gate (vertical O): context-addressing beats a
+  context-blind baseline, old-context retention, byte-exact undo.
+- `selfadapt_check.c` - Godel-Darwin self-adaptation gate (vertical P): self-tunes the decay
+  rate on a drifting taste, held-out anti-hack, ledger receipts, reversible.
 - `memory_bench.c` - timing lines for address, score, update, snapshot/restore,
   and in-RAM replay.
 - `hdc_bits.c` - 1024-bit HDC XOR + popcount baseline.
@@ -54,6 +60,8 @@ make run-log-invariants # event-log replay invariant guards
 make run-ledger   # decision-ledger append-only receipts (D018)
 make run-consolidate # lossy consolidation: evict/freeze, revival cost, lossy vs within-epoch (D018)
 make run-undo     # bounded undo: within-horizon exact, beyond/across-epoch refused (D018)
+make run-taste-loop  # drum taste loop: context-addressing beats blind baseline (vertical O)
+make run-self-adapt  # Godel-Darwin: self-tunes decay on drift, held-out gate (vertical P)
 make run-memory   # address/score/update/snapshot/replay timing lines
 make run-hdc      # bit-HDC XOR + popcount agreement
 make native       # -O3 -march=native behavior check
@@ -120,6 +128,19 @@ lossy + within-epoch replay: PASS (full replay diverges=yes, within-epoch matche
 undo within horizon is byte-exact: PASS
 undo beyond horizon refused: PASS
 undo across consolidation refused: PASS
+```
+
+`make run-taste-loop` and `make run-self-adapt` exercise the drum vertical (O, P) on
+synthetic drum-shaped data and should report PASS on every line:
+
+```text
+context-addressed taste beats blind baseline: PASS (cim=0.920 base=0.565)
+old-context retention after a new context: PASS (cim 0.905->0.910, base 0.912->0.597)
+undo N taste picks is byte-exact (R4): PASS
+self-adaptation beats no-forgetting baseline: PASS (best_decay=0.930 best=0.871 base=0.779)
+every proposal leaves a ledger receipt: PASS (commits=17 rollbacks=31 len=48)
+held-out rejects extreme operators: PASS
+rejected operator is byte-exactly reversible: PASS
 ```
 
 `make run-log-invariants` should report PASS for clean replay, sequence gap

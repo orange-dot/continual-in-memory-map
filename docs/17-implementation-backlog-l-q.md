@@ -158,6 +158,10 @@ Acceptance spec:
 - learning beats a simple online baseline on a held-out drum slate (doc 18)
 ```
 
+Implemented (`run-taste-loop`, green on synthetic drum-shaped data): context-addressed taste
+beats a context-blind baseline (0.920 vs 0.565), old-context retention holds (0.905→0.910 vs
+blind 0.912→0.597), and undo-N is byte-exact (R4 window). Real preference data is section L.
+
 ## P. Godel-Darwin Self-Adaptation  [M1]
 
 Goal: Loop 2 — let CIM propose small, closed adaptations to its own machinery,
@@ -197,6 +201,13 @@ Acceptance spec:
 - commit happens iff all hard gates pass (bounds, margin, capacity, rollback)
 - the decision ledger replays deterministically from events + seed
 ```
+
+Implemented (`run-self-adapt`, green on synthetic drum-shaped data): the operator self-tunes
+the **decay** (forgetting) rate on a drifting taste (best decay 0.930, held-out 0.871 vs 0.779
+no-forgetting), scored on held-out, with a MAP-Elites archive (`cinm_selfadapt`), ledger
+receipts, and byte-exact rollback of rejected operators. Operator choice — **decay, not the
+learning rate**: with the constant-step update ranking is scale-invariant in eta (doc 06), so
+eta is an empty knob; decay-on-drift is the operator that measurably matters.
 
 ## Q. Gate, Eval Harness, And Render  [M1 eval/gate; M2 render]
 

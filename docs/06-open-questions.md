@@ -29,6 +29,12 @@
 - What is the smallest update rule that still works?
 - How should update magnitude be bounded?
 - What should happen when feedback is noisy or adversarial?
+- **Insight (run-self-adapt, P):** with the constant-step pairwise update, ranking is
+  *scale-invariant in the learning rate* `eta` — it scales `w` but never the sign of a
+  comparison, until clamping — so `eta` is an empty self-adaptation knob on a stationary
+  task. The operator that measurably matters is the **decay (forgetting) rate on a
+  non-stationary task**: matching forgetting to drift changes held-out quality. This is why
+  the self-adaptation loop (P) self-tunes decay, not eta.
 
 ## Forgetting And Consolidation Questions
 

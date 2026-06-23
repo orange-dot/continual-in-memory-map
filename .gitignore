@@ -10,6 +10,8 @@ experiments/c-kernel/memory
 experiments/c-kernel/preference
 experiments/c-kernel/preference-native
 experiments/c-kernel/replay
+experiments/c-kernel/selfadapt
+experiments/c-kernel/taste
 experiments/c-kernel/txn
 experiments/c-kernel/undo
 experiments/c-kernel/*.o

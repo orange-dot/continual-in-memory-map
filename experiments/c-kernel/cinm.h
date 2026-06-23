@@ -39,6 +39,7 @@ typedef struct {
     uint32_t t;            /* logical event clock */
     uint32_t epoch;        /* consolidation generation; 0 until first consolidate (D018) */
     uint32_t base_seq;     /* first seq of the current epoch; within-epoch replay anchor */
+    float    eta;          /* learning rate (runtime; self-adaptation operator target, P) */
 } cinm_map;
 
 static inline float clampf(float x, float lo, float hi) {
