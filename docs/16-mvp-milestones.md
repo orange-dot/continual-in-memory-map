@@ -58,12 +58,18 @@ All of the following must hold; any FAIL blocks M2.
 Gates 4–5 are already green in the kernel and are inherited, not rebuilt. Gates
 1–3 and 6–8 are the new M1 work (backlog L, M, O, P, Q-eval).
 
-Status (synthetic): on synthetic drum-shaped tasks all eight gates are green —
-1–2 via `run-taste-loop`, 3 via the consolidation sub-probe (`run-consolidate`) +
-retention, 4–5 via `run-txn` / `run-replay` / `run-log-invariants`, 6 via
-`run-ledger`, 7 via `run-self-adapt` (held-out, proposer ≠ grader), 8 via the core
-bounds gates. The remaining M1 work is the **real-data adapter** (L/M): feeding the
-loop real `aig_ranker` preferences instead of synthetic.
+Status: on synthetic drum-shaped tasks all eight gates are green — 1–2 via
+`run-taste-loop`, 3 via the consolidation sub-probe (`run-consolidate`) + retention,
+4–5 via `run-txn` / `run-replay` / `run-log-invariants`, 6 via `run-ledger`, 7 via
+`run-self-adapt` (held-out, proposer ≠ grader), 8 via the core bounds gates. The
+real-data adapter (L/M) is in (`run-drum-adapter`, `run-drum-features`), and the
+**L→M→O seam now runs end to end on real-schema files**: `run-drum-e2e` shows
+context-addressed taste beating a context-blind baseline on a held-out slate (gate 1),
+and `run-drum-gate` is the **Q decision gate** (hard gates + GOLDEN_SET held-out +
+ANTI_PATTERNS critic) — it ACCEPTs and writes a doc-18 run bundle. Of the six
+transcribed anti-patterns, four are CHECKED in M1 and two (counterproposal-theater,
+source-imitation) are DEFERRED to M2/N. Real human preference bundles (vs synthetic in
+the real wire schema) remain the deferred upstream (D017).
 
 ### M1 is explicitly NOT
 

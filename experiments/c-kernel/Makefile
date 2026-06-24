@@ -51,6 +51,12 @@ drum-adapter: drum_adapter_check.c cinm_drum_adapter.c cinm.c cinm_log.c cinm.h 
 drum-features: drum_features_check.c cinm_drum_adapter.c cinm.c cinm_log.c cinm.h cinm_log.h cinm_drum_adapter.h
 	$(CC) $(CFLAGS) -o drum-features drum_features_check.c cinm_drum_adapter.c cinm.c cinm_log.c
 
+drum-e2e: drum_e2e_check.c cinm_drum_adapter.c cinm.c cinm_log.c cinm.h cinm_log.h cinm_drum_adapter.h
+	$(CC) $(CFLAGS) -o drum-e2e drum_e2e_check.c cinm_drum_adapter.c cinm.c cinm_log.c
+
+drum-gate: drum_gate_check.c cinm_drum_adapter.c cinm.c cinm_log.c cinm.h cinm_log.h cinm_drum_adapter.h
+	$(CC) $(CFLAGS) -o drum-gate drum_gate_check.c cinm_drum_adapter.c cinm.c cinm_log.c
+
 hdc-bits: hdc_bits.c
 	$(CC) $(CFLAGS) -o hdc-bits hdc_bits.c
 
@@ -108,6 +114,13 @@ run-drum-adapter: drum-adapter
 run-drum-features: drum-features
 	./drum-features
 
+run-drum-e2e: drum-e2e
+	./drum-e2e
+
+run-drum-gate: drum-gate
+	mkdir -p runs/cim-drum-m1-gate
+	./drum-gate
+
 run-hdc: hdc-bits
 	./hdc-bits
 
@@ -115,6 +128,7 @@ native: preference-native
 	./preference-native
 
 clean:
-	rm -f preference bench cmp learning txn core-check replay log-invariants memory ledger consolidate undo taste selfadapt drum-adapter drum-features hdc-bits preference-native *.o
+	rm -f preference bench cmp learning txn core-check replay log-invariants memory ledger consolidate undo taste selfadapt drum-adapter drum-features drum-e2e drum-gate hdc-bits preference-native *.o
+	rm -rf runs
 
-.PHONY: run run-bench run-cmp run-learning run-txn run-core-check run-replay run-log-invariants run-memory run-ledger run-consolidate run-undo run-taste-loop run-self-adapt run-drum-adapter run-drum-features run-hdc native vec-report clean
+.PHONY: run run-bench run-cmp run-learning run-txn run-core-check run-replay run-log-invariants run-memory run-ledger run-consolidate run-undo run-taste-loop run-self-adapt run-drum-adapter run-drum-features run-drum-e2e run-drum-gate run-hdc native vec-report clean

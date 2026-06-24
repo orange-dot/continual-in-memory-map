@@ -47,7 +47,16 @@ disk tier (decision D013).
   record_id, winner+confidence -> reward/dphi. Library-free line reader.
 - `drum_adapter_check.c` / `drum_features_check.c` - gates: golden cinm_event sequence, phase
   split, dedup, no drum-symbol leak (L); phi/dphi determinism + sparse activation (M).
+- `drum_e2e_check.c` - gate run-drum-e2e (L->M->O end to end): the file -> adapter -> taste-loop
+  seam composes deterministically on the committed fixture, and context-addressed taste beats a
+  context-blind baseline on a held-out slate at scale.
+- `drum_gate_check.c` - gate run-drum-gate (vertical Q, M1 decision gate): hard gates (bounds,
+  capacity, rollback, anti-hack) + GOLDEN_SET held-out (ideal>bad, catch trials, revision flips)
+  + ANTI_PATTERNS critic; writes a doc-18 named-run bundle under `runs/cim-drum-m1-gate/`.
 - `testdata/drum_events.sample` - committed real-schema fixture for the adapter gates.
+- `testdata/drum_events.learn` - committed synthetic-in-real-schema scale fixture for run-drum-e2e.
+- `testdata/golden_set.sample` - committed transcription (snapshot) of the drummer GOLDEN_SET /
+  ANTI_PATTERNS authority docs into the gesture-phi schema, for run-drum-gate.
 - `memory_bench.c` - timing lines for address, score, update, snapshot/restore,
   and in-RAM replay.
 - `hdc_bits.c` - 1024-bit HDC XOR + popcount baseline.
@@ -70,6 +79,8 @@ make run-taste-loop  # drum taste loop: context-addressing beats blind baseline 
 make run-self-adapt  # Godel-Darwin: self-tunes decay on drift, held-out gate (vertical P)
 make run-drum-adapter   # real-schema drum_events -> cinm_events: golden vector, phase, dedup (L)
 make run-drum-features  # phi/dphi determinism + sparse activation (M)
+make run-drum-e2e       # L->M->O end to end: seam composes + learns on a held-out slate
+make run-drum-gate      # M1 decision gate: hard gates + GOLDEN_SET held-out + ANTI_PATTERNS (Q)
 make run-memory   # address/score/update/snapshot/replay timing lines
 make run-hdc      # bit-HDC XOR + popcount agreement
 make native       # -O3 -march=native behavior check
@@ -162,6 +173,35 @@ kernel sees only neutral cinm_events: PASS
 phi/dphi deterministic across runs: PASS
 sparse activation (cells=3 << MAX_CELLS=256): PASS
 ```
+
+`make run-drum-e2e` runs the L->M->O seam on real-schema files (`drum_events.sample`
+smoke + `drum_events.learn` scale) and should report PASS on every line:
+
+```text
+L->M->O seam composes (deterministic, no drum-symbol leak): PASS (train=6 slate=3 cells=3)
+real-schema taste learns through the seam: PASS (cim=0.854 base=0.625)
+sparse context activation (cells=4 == contexts=4): PASS
+```
+
+`make run-drum-gate` (vertical Q) trains on the transcribed `golden_set.sample`
+bootstrap and decides on held-out phase-1; it should ACCEPT and write a doc-18
+named-run bundle under `runs/cim-drum-m1-gate/`:
+
+```text
+hard gates (bounds/capacity/rollback/anti-hack): PASS
+GOLDEN_SET held-out (8/8 ideal>bad, 2/2 revision flips, catch tie/ok): PASS
+ANTI_PATTERNS critic (4 checked, 2 deferred-M2): PASS
+M1 decision: ACCEPT
+run bundle (runs/cim-drum-m1-gate): config.toml events.jsonl metrics.json decisions.jsonl summary.md
+```
+
+The two deferred anti-patterns (counterproposal-theater, source-imitation) need
+groove generation/dialogue and bind at M2 (step N); the bundle's `summary.md` lists
+CHECKED vs DEFERRED so coverage is never silently overstated. The GOLDEN_SET /
+ANTI_PATTERNS fixtures are a transcription snapshot of
+`pc4-microkit-studio/crates/drum-engine/authority/docs/{eval,goldens}/` and may
+drift from that source. Runs under `runs/` are local evidence and gitignored
+(doc 18).
 
 `make run-log-invariants` should report PASS for clean replay, sequence gap
 rejection, duplicate sequence rejection, unsupported type rejection, and

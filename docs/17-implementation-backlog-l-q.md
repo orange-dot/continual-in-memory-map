@@ -251,6 +251,26 @@ M2:
 - the render path issues no runtime-authority calls (doc 19)
 ```
 
+Implemented (M1 eval/gate; `make run-drum-gate` ACCEPT, `make run-drum-e2e` green): the
+L→M→O seam now runs end to end on real-schema files — a composition smoke on the committed
+fixture plus scale learning where context-addressed taste beats a context-blind baseline on
+a held-out slate (`run-drum-e2e`, cim 0.854 vs 0.625). The M1 decision gate
+(`run-drum-gate`) trains on a transcribed drummer fixture and decides on held-out phase-1:
+hard gates (bounds, capacity, rollback, anti-hack as a read-only-grader check) + a
+GOLDEN_SET held-out check (ideal>bad, catch trials, revision flips) + an ANTI_PATTERNS
+critic, writing the doc-18 bundle (config.toml + events.jsonl + metrics.json +
+decisions.jsonl + summary.md) under `runs/cim-drum-m1-gate/`.
+
+Transcription scope: `GOLDEN_SET_SPEC.md` (a field/balance spec) is instantiated as 10
+held-out goldens; `ANTI_PATTERNS.md` (6 populated modes) is copied as the critic catalog.
+Four modes are pairwise-checkable in M1 (density-inflation, fill-spam, visible-odd-meter,
+session-genericity); two (counterproposal-theater, source-imitation) need groove
+generation/dialogue and are explicitly DEFERRED to M2/N, not dropped (`summary.md` lists
+CHECKED vs DEFERRED). The fixtures are a snapshot of
+`pc4-microkit-studio/crates/drum-engine/authority/docs/{eval,goldens}/` and may drift;
+brief→law-map→phi is a modeling act, so the gate tests RANK (ideal>bad), not musical
+quality (doc 16). [M2] render stays pending.
+
 ## Sequencing
 
 ```text

@@ -3,7 +3,9 @@ experiments/c-kernel/cmp
 experiments/c-kernel/consolidate
 experiments/c-kernel/core-check
 experiments/c-kernel/drum-adapter
+experiments/c-kernel/drum-e2e
 experiments/c-kernel/drum-features
+experiments/c-kernel/drum-gate
 experiments/c-kernel/hdc-bits
 experiments/c-kernel/learning
 experiments/c-kernel/ledger
@@ -17,4 +19,5 @@ experiments/c-kernel/taste
 experiments/c-kernel/txn
 experiments/c-kernel/undo
 experiments/c-kernel/*.o
+experiments/c-kernel/runs/
 .isabelle-user/
