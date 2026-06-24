@@ -57,6 +57,12 @@ drum-e2e: drum_e2e_check.c cinm_drum_adapter.c cinm.c cinm_log.c cinm.h cinm_log
 drum-gate: drum_gate_check.c cinm_drum_adapter.c cinm.c cinm_log.c cinm.h cinm_log.h cinm_drum_adapter.h
 	$(CC) $(CFLAGS) -o drum-gate drum_gate_check.c cinm_drum_adapter.c cinm.c cinm_log.c
 
+groove-archive: groove_check.c cinm.c cinm_log.c cinm_drum_adapter.c cinm_groove.c cinm.h cinm_log.h cinm_drum_adapter.h cinm_groove.h
+	$(CC) $(CFLAGS) -o groove-archive groove_check.c cinm.c cinm_log.c cinm_drum_adapter.c cinm_groove.c
+
+drum-render: drum_render_check.c cinm.c cinm_log.c cinm_drum_adapter.c cinm_groove.c cinm_drum_render.c cinm.h cinm_log.h cinm_drum_adapter.h cinm_groove.h cinm_drum_render.h
+	$(CC) $(CFLAGS) -o drum-render drum_render_check.c cinm.c cinm_log.c cinm_drum_adapter.c cinm_groove.c cinm_drum_render.c
+
 hdc-bits: hdc_bits.c
 	$(CC) $(CFLAGS) -o hdc-bits hdc_bits.c
 
@@ -121,6 +127,13 @@ run-drum-gate: drum-gate
 	mkdir -p runs/cim-drum-m1-gate
 	./drum-gate
 
+run-groove-archive: groove-archive
+	./groove-archive
+
+run-drum-render: drum-render
+	mkdir -p runs/cim-drum-m2-render
+	./drum-render
+
 run-hdc: hdc-bits
 	./hdc-bits
 
@@ -128,7 +141,7 @@ native: preference-native
 	./preference-native
 
 clean:
-	rm -f preference bench cmp learning txn core-check replay log-invariants memory ledger consolidate undo taste selfadapt drum-adapter drum-features drum-e2e drum-gate hdc-bits preference-native *.o
+	rm -f preference bench cmp learning txn core-check replay log-invariants memory ledger consolidate undo taste selfadapt drum-adapter drum-features drum-e2e drum-gate groove-archive drum-render hdc-bits preference-native *.o
 	rm -rf runs
 
-.PHONY: run run-bench run-cmp run-learning run-txn run-core-check run-replay run-log-invariants run-memory run-ledger run-consolidate run-undo run-taste-loop run-self-adapt run-drum-adapter run-drum-features run-drum-e2e run-drum-gate run-hdc native vec-report clean
+.PHONY: run run-bench run-cmp run-learning run-txn run-core-check run-replay run-log-invariants run-memory run-ledger run-consolidate run-undo run-taste-loop run-self-adapt run-drum-adapter run-drum-features run-drum-e2e run-drum-gate run-groove-archive run-drum-render run-hdc native vec-report clean

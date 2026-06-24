@@ -6,6 +6,8 @@ experiments/c-kernel/drum-adapter
 experiments/c-kernel/drum-e2e
 experiments/c-kernel/drum-features
 experiments/c-kernel/drum-gate
+experiments/c-kernel/drum-render
+experiments/c-kernel/groove-archive
 experiments/c-kernel/hdc-bits
 experiments/c-kernel/learning
 experiments/c-kernel/ledger

@@ -123,6 +123,16 @@ Acceptance spec:
 - quarantined grooves are retrievable with their rejection reason
 ```
 
+Implemented (`run-groove-archive`, green): the archive (`cinm_groove`) lifts the
+`cinm_selfadapt` MAP-Elites shape from operator space to a 2-D behavior grid over a phi
+genome — one elite per niche, parent-niche lineage, a quarantine ring of rejects with a
+reason (negative evidence). Driven by the M1 taste model as fitness through the L->M seam, it
+holds every niche open (36/36, no collapse), bounds the population by the grid, beats the
+random seeds, and runs deterministically. The archive stays neutral (no kernel call; the
+caller supplies the behavior descriptor and the fitness). The behavior axes are a modeling
+act over the phi schema (the doc-17 density x syncopation example) and may drift; the render
+path is §Q (`run-drum-render`).
+
 ## O. Taste-Learning Loop Wiring  [M1]
 
 Goal: wire Loop 1 end to end on the existing kernel: address -> score -> bounded
@@ -269,7 +279,16 @@ generation/dialogue and are explicitly DEFERRED to M2/N, not dropped (`summary.m
 CHECKED vs DEFERRED). The fixtures are a snapshot of
 `pc4-microkit-studio/crates/drum-engine/authority/docs/{eval,goldens}/` and may drift;
 brief→law-map→phi is a modeling act, so the gate tests RANK (ideal>bad), not musical
-quality (doc 16). [M2] render stays pending.
+quality (doc 16).
+
+[M2] render is implemented (`run-drum-render` ACCEPT): the fittest taste-adapted elite from
+§N is lowered to a real type-0 Standard MIDI File on the GM drum channel with a
+`*.midi-loss-map`, re-parsed for validity, proven byte-deterministic and free of runtime
+authority, and shown to out-score a generic baseline under the taste model — a doc-18 margin
+proxy. The direct phi -> GM-grid lowering (`cim.drum_gm_grid.v1`: four GM voices, a density +
+velocity gene each, a kick/snare backbone floor) is a modeling act and may drift; the human
+blind-A/B "sounds good" claim, real ADG -> `aig-pc4-midi` export, and sample-backend audition
+stay the deferred upstream (D017, doc 21). The bundle lands under `runs/cim-drum-m2-render/`.
 
 ## Sequencing
 

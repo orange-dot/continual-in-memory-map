@@ -104,6 +104,19 @@ with reversibility and explanation intact. M2 begins only after the M1 gate pass
                    ADG stays semantic authority, MIDI ships its loss map
 ```
 
+Status: M2 is unblocked — the M1 gate is green (`run-drum-gate` ACCEPT). The **N groove
+generator** is in (`run-groove-archive`): a MAP-Elites archive (`cinm_groove`) with the M1
+taste model as the selection pressure, niches held open (36/36, gate-2 diversity), bounded
+population, and parent-niche lineage (gate-4 explanation). The **render path** is in
+(`run-drum-render`): it lowers the fittest taste-adapted elite to a real type-0 Standard MIDI
+File on the GM drum channel with a `*.midi-loss-map`, re-parses it, proves byte-determinism
+and zero runtime authority (gate 5), and shows the adapted groove out-scoring a generic
+baseline under the taste model — a **doc-18 margin proxy for gate 1, not the human blind A/B
+itself**. Reversibility (gate 3) is inherited (`run-txn` / `run-undo`), not re-run. Deferred to
+D017: the human blind-A/B "sounds good" claim, real ADG -> `aig-pc4-midi` export, and
+sample-backend audition; the direct phi -> GM-grid lowering (`cim.drum_gm_grid.v1`) is a
+modeling act and may drift (doc 21: proxy != sounds-good).
+
 ### M2 is explicitly NOT
 
 - not a replacement drummer or a prompt->song generator (doc 19, DRUMMER_BASSIST_V0)

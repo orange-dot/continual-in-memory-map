@@ -53,6 +53,21 @@ disk tier (decision D013).
 - `drum_gate_check.c` - gate run-drum-gate (vertical Q, M1 decision gate): hard gates (bounds,
   capacity, rollback, anti-hack) + GOLDEN_SET held-out (ideal>bad, catch trials, revision flips)
   + ANTI_PATTERNS critic; writes a doc-18 named-run bundle under `runs/cim-drum-m1-gate/`.
+- `cinm_groove.h` / `cinm_groove.c` - MAP-Elites groove archive (vertical N, M2): a 2-D behavior
+  grid over a phi genome, one elite per niche, parent-niche lineage, a quarantine ring of rejects.
+  Neutral — the caller supplies the behavior descriptor and the taste fitness; the archive never
+  calls the kernel (lifts the `cinm_selfadapt` shape from operator space to groove space).
+- `groove_check.c` - gate run-groove-archive (vertical N): the M1 taste model is the selection
+  pressure; niches stay populated (no collapse), population is bounded, selection beats the random
+  seeds, lineage is reconstructable, rejects are quarantined with a reason, run is deterministic.
+- `cinm_drum_render.h` / `cinm_drum_render.c` - the drum-aware render seam (vertical Q, M2): the
+  only place a groove's phi is lowered to drum voices. phi -> type-0 Standard MIDI File on the GM
+  drum channel + a `*.midi-loss-map` sidecar for the lossy continuous->grid lowering. No runtime
+  authority — bytes/files only (doc 19).
+- `drum_render_check.c` - gate run-drum-render (vertical Q, M2 render): renders the fittest
+  taste-adapted elite + a generic baseline; re-parses the SMF, checks byte-determinism and loss-map
+  presence, and proves the adapted groove out-scores the baseline under the taste model (margin
+  proxy; human blind-A/B deferred D017). Writes a doc-18 bundle under `runs/cim-drum-m2-render/`.
 - `testdata/drum_events.sample` - committed real-schema fixture for the adapter gates.
 - `testdata/drum_events.learn` - committed synthetic-in-real-schema scale fixture for run-drum-e2e.
 - `testdata/golden_set.sample` - committed transcription (snapshot) of the drummer GOLDEN_SET /
@@ -81,6 +96,8 @@ make run-drum-adapter   # real-schema drum_events -> cinm_events: golden vector,
 make run-drum-features  # phi/dphi determinism + sparse activation (M)
 make run-drum-e2e       # L->M->O end to end: seam composes + learns on a held-out slate
 make run-drum-gate      # M1 decision gate: hard gates + GOLDEN_SET held-out + ANTI_PATTERNS (Q)
+make run-groove-archive # N MAP-Elites groove generator: taste-driven, no niche collapse (M2)
+make run-drum-render    # Q render: phi -> real GM-drum MIDI + loss map, taste-margin proxy (M2)
 make run-memory   # address/score/update/snapshot/replay timing lines
 make run-hdc      # bit-HDC XOR + popcount agreement
 make native       # -O3 -march=native behavior check
@@ -202,6 +219,38 @@ ANTI_PATTERNS fixtures are a transcription snapshot of
 `pc4-microkit-studio/crates/drum-engine/authority/docs/{eval,goldens}/` and may
 drift from that source. Runs under `runs/` are local evidence and gitignored
 (doc 18).
+
+`make run-groove-archive` (vertical N) evolves a groove archive with the M1 taste
+model as the selection pressure and should report PASS on every line:
+
+```text
+niches stay populated (no collapse): PASS (filled=36/36, need>=32)
+population bounded by the niche grid: PASS (tried=6064 discarded=5572 filled<=36)
+selection beats the random seeds: PASS (elite=0.410 seed=-0.264)
+lineage reconstructable: PASS (bred=36, best niche parents=24/1 fit=0.536)
+rejects quarantined with a reason: PASS (retained=64 dominated=64 out-of-range=yes)
+groove run is deterministic: PASS
+```
+
+`make run-drum-render` (vertical Q, M2 render) renders the fittest taste-adapted
+elite to a real type-0 SMF on the GM drum channel and should ACCEPT, writing a
+doc-18 bundle under `runs/cim-drum-m2-render/`:
+
+```text
+type-0 SMF container is valid (re-parsed): PASS (bytes=49 notes=2)
+render is byte-deterministic (same phi -> same .mid): PASS
+each .mid ships a non-empty *.midi-loss-map: PASS (adapted=648B baseline=649B)
+taste shows up in the render (margin proxy, blind-A/B deferred D017): PASS (adapted=0.536 base=-0.264 margin=0.800)
+doc-18 bundle written under runs/cim-drum-m2-render/: PASS
+render decision: ACCEPT
+```
+
+The phi -> drum lowering (`cim.drum_gm_grid.v1`: four GM voices, a density + velocity
+gene each, a kick/snare backbone floor) is a modeling act and may drift; the gate
+proves the pipeline and a taste-margin proxy, not musical quality (doc 16). Human
+blind-A/B, real ADG -> aig-pc4-midi export, and sample-backend audition stay deferred
+to D017 (doc 21). Both `.mid` files play in any GM-compatible player/DAW; runs under
+`runs/` are gitignored.
 
 `make run-log-invariants` should report PASS for clean replay, sequence gap
 rejection, duplicate sequence rejection, unsupported type rejection, and
