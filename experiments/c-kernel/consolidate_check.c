@@ -11,7 +11,7 @@
 /* revival bound: re-learn an evicted context to within REVIVE_R of its pre-eviction
  * win-rate (relative, doc 18) within REVIVE_K trials. */
 enum { REVIVE_K = 100, EVAL_TRIALS = 400 };
-static const float REVIVE_R = 0.85f;   /* recover to >= 85% of pre-eviction win-rate */
+constexpr float REVIVE_R = 0.85f;   /* recover to >= 85% of pre-eviction win-rate */
 
 static uint64_t rng_state = 0x0ABCDEF123456789ULL;
 static uint64_t nx(void) {
@@ -25,7 +25,7 @@ static float rnd01(void) { return (float)(nx() >> 40) / (float)(1u << 24); }  /*
 /* Train cell `key` on a separable pairwise preference defined by wt, via adaptive
  * updates (which raise confidence — pairwise/replay deliberately do not). */
 static void train(cinm_map *m, uint32_t key, const float wt[NFEAT], int n, uint32_t at) {
-    size_t i = cinm_address(m, key, NULL);
+    size_t i = cinm_address(m, key, nullptr);
     for (int s = 0; s < n; s++) {
         float pa[NFEAT], pb[NFEAT], ta = 0.0f, tb = 0.0f, dphi[NFEAT];
         for (int k = 0; k < NFEAT; k++) { pa[k] = rnd01(); pb[k] = rnd01(); ta += wt[k]*pa[k]; tb += wt[k]*pb[k]; }
@@ -57,17 +57,17 @@ int main(void) {
     cinm_init(&M);
     M.t = 1000;
 
-    size_t s1 = cinm_address(&M, 1, NULL);                 /* strong -> frozen */
+    size_t s1 = cinm_address(&M, 1, nullptr);                 /* strong -> frozen */
     for (int k = 0; k < NFEAT; k++) M.w[s1][k] = 2.0f;
     M.conf[s1] = 0.9f; M.evidence[s1] = 50; M.last_touched[s1] = 990;
 
     for (uint32_t key = 2; key <= 3; key++) {              /* dead -> evicted */
-        size_t i = cinm_address(&M, key, NULL);
+        size_t i = cinm_address(&M, key, nullptr);
         for (int k = 0; k < NFEAT; k++) M.w[i][k] = 0.001f;
         M.conf[i] = 0.05f; M.evidence[i] = 1; M.last_touched[i] = 100;
     }
 
-    size_t a1 = cinm_address(&M, 4, NULL);                 /* active -> kept */
+    size_t a1 = cinm_address(&M, 4, nullptr);                 /* active -> kept */
     for (int k = 0; k < NFEAT; k++) M.w[a1][k] = 1.0f;
     M.conf[a1] = 0.30f; M.evidence[a1] = 5; M.last_touched[a1] = 995;
     float active_w_before = M.w[a1][0];
@@ -86,14 +86,14 @@ int main(void) {
                && M.count == count_before - 2
                && M.epoch == 1 && M.base_seq == 1000;
 
-    size_t f1 = cinm_address(&M, 1, NULL);                 /* frozen cell survived */
+    size_t f1 = cinm_address(&M, 1, nullptr);                 /* frozen cell survived */
     bool frozen_ok = M.frozen[f1] && M.plast[f1] <= PLAST_FLOOR + 1e-6f;
 
     float frozen_w_before = M.w[f1][0];
     cinm_decay(&M, 0.5f);                                  /* frozen exempt; active halved */
     bool frozen_stable = M.w[f1][0] == frozen_w_before;
 
-    size_t k1 = cinm_address(&M, 4, NULL);
+    size_t k1 = cinm_address(&M, 4, nullptr);
     bool active_kept = M.w[k1][0] == active_w_before * 0.5f;   /* kept by consolidate, then one decay */
 
     bool n2 = false, n3 = false;
@@ -108,7 +108,7 @@ int main(void) {
     float wt[NFEAT];
     for (int k = 0; k < NFEAT; k++) wt[k] = rnd01() * 2.0f - 1.0f;
     train(&RV, 9, wt, 200, 1);
-    size_t ri = cinm_address(&RV, 9, NULL);
+    size_t ri = cinm_address(&RV, 9, nullptr);
     float w0 = winrate(&RV, ri, wt, EVAL_TRIALS);
 
     for (int k = 0; k < NFEAT; k++) RV.w[ri][k] = 0.0f;    /* model dormancy: faded, lapsed, idle */
@@ -118,7 +118,7 @@ int main(void) {
     bool revived_novel = false;
     (void)cinm_address(&RV, 9, &revived_novel);            /* evicted, so re-address is novel */
     train(&RV, 9, wt, REVIVE_K, 100001);
-    size_t ri2 = cinm_address(&RV, 9, NULL);
+    size_t ri2 = cinm_address(&RV, 9, nullptr);
     float wr = winrate(&RV, ri2, wt, EVAL_TRIALS);
     bool revival_ok = rr.evicted == 1 && revived_novel && wr >= REVIVE_R * w0;
 
@@ -136,7 +136,7 @@ int main(void) {
     for (uint32_t key = 5; key <= 6; key++) {             /* dead: one tiny-dphi update, early/stale */
         cinm_event ev = { .seq = seq, .type = 0, .key = key, .reward = 1.0f };
         for (int k = 0; k < NFEAT; k++) ev.dphi[k] = 0.001f;
-        size_t i = cinm_address(&L, key, NULL);
+        size_t i = cinm_address(&L, key, nullptr);
         cinm_update(&L, i, ev.dphi, ev.reward, seq);
         cinm_log_append(&lg, &ev);
         L.t = seq + 1; seq++;
@@ -145,7 +145,7 @@ int main(void) {
         for (uint32_t key = 0; key <= 2; key++) {
             cinm_event ev = { .seq = seq, .type = 0, .key = key, .reward = 1.0f };
             for (int k = 0; k < NFEAT; k++) ev.dphi[k] = (k % 2 == 0) ? 0.5f : -0.3f;
-            size_t i = cinm_address(&L, key, NULL);
+            size_t i = cinm_address(&L, key, nullptr);
             cinm_update(&L, i, ev.dphi, ev.reward, seq);
             cinm_log_append(&lg, &ev);
             L.t = seq + 1; seq++;
@@ -160,7 +160,7 @@ int main(void) {
     for (uint32_t key = 0; key <= 2; key++) {             /* epoch-1 tail: kept contexts only */
         cinm_event ev = { .seq = seq, .type = 0, .key = key, .reward = 1.0f };
         for (int k = 0; k < NFEAT; k++) ev.dphi[k] = 0.2f;
-        size_t i = cinm_address(&L, key, NULL);
+        size_t i = cinm_address(&L, key, nullptr);
         cinm_update(&L, i, ev.dphi, ev.reward, seq);
         cinm_log_append(&lg, &ev);
         L.t = seq + 1; seq++;

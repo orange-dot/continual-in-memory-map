@@ -20,14 +20,14 @@ int main(void) {
     float phi[NFEAT];
     for (int k = 0; k < NFEAT; k++) phi[k] = (k % 2) ? 1.0f : -1.0f;
     for (uint32_t c = 0; c < 4; c++) {
-        size_t i = cinm_address(&map, c, NULL);
+        size_t i = cinm_address(&map, c, nullptr);
         cinm_update(&map, i, phi, +1.0f, map.t++);
     }
 
     cinm_map before;
     cinm_snapshot(&map, &before);
 
-    bool committed = cinm_transaction(&map, bad_candidate, NULL);
+    bool committed = cinm_transaction(&map, bad_candidate, nullptr);
     bool identical = cinm_equal(&map, &before);
 
     printf("committed=%s  identical-after-rollback=%s -> %s\n",

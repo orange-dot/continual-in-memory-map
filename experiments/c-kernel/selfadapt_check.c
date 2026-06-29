@@ -61,7 +61,7 @@ static void build_task(void) {
 static double holdout_score(cinm_map *m) {
     int ok = 0;
     for (int n = 0; n < HELD; n++) {
-        size_t i = cinm_address(m, slate[n].ctx, NULL);
+        size_t i = cinm_address(m, slate[n].ctx, nullptr);
         if (slate[n].a_better == (cinm_score(m, i, slate[n].a) >= cinm_score(m, i, slate[n].b))) ok++;
     }
     return (double)ok / (double)HELD;
@@ -73,7 +73,7 @@ static double eval_decay(float dec) {
     cinm_map m;
     cinm_init(&m);
     for (int t = 0; t < WIN; t++) {
-        cinm_update(&m, cinm_address(&m, win_set[t].ctx, NULL), win_set[t].dphi, 1.0f, (uint32_t)t);
+        cinm_update(&m, cinm_address(&m, win_set[t].ctx, nullptr), win_set[t].dphi, 1.0f, (uint32_t)t);
         if ((t + 1) % DECAY_EVERY == 0) cinm_decay(&m, dec);
     }
     return holdout_score(&m);
@@ -118,12 +118,12 @@ int main(void) {
     cinm_map live;
     cinm_init(&live);
     for (int t = 0; t < WIN; t++)
-        cinm_update(&live, cinm_address(&live, win_set[t].ctx, NULL), win_set[t].dphi, 1.0f, (uint32_t)t);
+        cinm_update(&live, cinm_address(&live, win_set[t].ctx, nullptr), win_set[t].dphi, 1.0f, (uint32_t)t);
     cinm_map pre;
     cinm_snapshot(&live, &pre);
     cinm_decay(&live, 0.50f);
     for (int t = 0; t < WIN; t++)
-        cinm_update(&live, cinm_address(&live, win_set[t].ctx, NULL), win_set[t].dphi, 1.0f, (uint32_t)(WIN + t));
+        cinm_update(&live, cinm_address(&live, win_set[t].ctx, nullptr), win_set[t].dphi, 1.0f, (uint32_t)(WIN + t));
     bool mutated = !cinm_equal(&live, &pre);
     cinm_restore(&live, &pre);
     bool reversible = mutated && cinm_equal(&live, &pre);

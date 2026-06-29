@@ -1,9 +1,10 @@
 # 22. State-Primacy Refactor Plan (D018)
 
-Status: **implemented — R0–R5 landed and green.** The staged plan below was executed
-in `experiments/c-kernel/`; every stage gate passes (`make run-replay run-ledger
-run-consolidate run-undo`, and the full suite at 31 PASS / 0 FAIL, no warnings). The
-text is kept as the rationale and stage map.
+Status: **implemented — R0–R5 landed and green; R3.5 (schema/merge consolidation)
+added later under D019.** The staged plan below was executed in
+`experiments/c-kernel/`; every stage gate passes (`make run-replay run-ledger
+run-consolidate run-undo run-nn-address`, full suite green, no warnings). The text is
+kept as the rationale and stage map.
 
 This plan brings the C kernel in line with **D018** (doc 05): the live map is the
 primary state; full-log replay is a *within-epoch* recovery and verification
@@ -114,8 +115,8 @@ Gate / Acceptance*. Surfaces are grounded in the current API (`cinm.h`,
   so nothing can be merged into a prototype without losing the ability to address a
   key. R3 is therefore **evict-dead + freeze-strong only**. Schema/merge
   compression (folding similar contexts into a prototype — what a "real learner"
-  does) needs NN/prototype addressing and is deferred to **R3.5**, gated on the
-  doc-06 addressing decision.
+  does) needs NN/prototype addressing; that addressing has since landed (D019) and
+  the merge stage is **R3.5** below.
 - **Resolved policy — decay proposes, consolidation disposes:**
 
   ```text
@@ -156,6 +157,30 @@ Gate / Acceptance*. Surfaces are grounded in the current API (`cinm.h`,
   evicted context within the bound in `config.toml`, (c) frozen cells do not drift;
   and a test asserts post-consolidation full replay diverges (lossy) while
   within-epoch replay matches.
+
+### R3.5 — Schema/merge consolidation (D019, added later)
+
+- **Goal:** the compression R3 could not do under exact keys — fold near-duplicate
+  prototypes into one, the schema compression a real learner performs.
+- **Prerequisite (now met):** continuous nearest-neighbour / prototype addressing
+  (`cinm_address_nn`, D019). A cell carries a `proto[NFEAT]` address; near-identical
+  contexts share a cell instead of fragmenting, so there is finally redundancy to
+  compress.
+- **Planned surface (shipped):** `cinm_consolidate_policy.merge_radius2` (0 = off,
+  the exact-key default) and `cinm_consolidate_result.merged`. A merge pass folds each
+  non-frozen cell into an earlier non-frozen cell within `merge_radius2` by an
+  evidence-weighted blend of address (`proto`) and content (`w`); the folded cell is
+  reclaimed by the existing R3 compaction. Frozen cells never merge. The caller adds
+  the merge count to the R2 ledger receipt.
+- **Invariant:** merge is lossy past the epoch boundary (two cells → one, irreversible
+  like the rest of consolidation); the merged cell stays faithful to the contexts it
+  absorbed; exact-key callers (`merge_radius2 == 0`) are byte-unchanged.
+- **Gate:** `run-nn-address` (neutral, doc 03 contextual preference with variation).
+- **Acceptance:** addressing is deterministic and sparse; NN folds jittered contexts
+  into a few prototypes where exact keys fragment to the cell ceiling; novelty is a
+  radius decision; radius-0 reproduces exact-key learning; merge reduces `count`,
+  emits a receipt, and the merged cell holds its preference; a full re-run reproduces
+  the pre-merge map and re-running merge reproduces the merged map (deterministic).
 
 ### R4 — Bounded undo window (retention horizon)
 
@@ -223,6 +248,7 @@ refactor has not already made neutral.
   **windowed** reversibility — not global reconstruction, which D018 retired.
 - Consolidation is deliberately outside the reversible envelope; that is the
   point, not a gap.
-- Schema/merge consolidation (R3.5) is deferred and gated on the doc-06 addressing
-  decision (exact-symbolic keys → no prototypes yet); R3 ships evict-dead +
-  freeze-strong on exact keys.
+- Schema/merge consolidation (R3.5) is **implemented** under D019: NN/prototype
+  addressing (`cinm_address_nn`) supplies the redundancy, and `cinm_consolidate` folds
+  near-duplicate prototypes when `merge_radius2 > 0`. Exact-key callers still get
+  evict-dead + freeze-strong only (`merge_radius2 == 0`), byte-unchanged.

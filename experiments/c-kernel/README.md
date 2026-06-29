@@ -9,10 +9,11 @@ disk tier (decision D013).
 
 ## Files
 
-- `cinm.h` / `cinm.c` - SoA synaptic map and adaptive cell core: address, score,
-  margin, bounded pairwise and margin/confidence-gated adaptive update, decay,
-  explain, whole-map snapshot/restore, speculative transaction, and member-wise
-  equality.
+- `cinm.h` / `cinm.c` - SoA synaptic map and adaptive cell core: exact-key and
+  continuous nearest-neighbour/prototype addressing (D019), score, margin, bounded
+  pairwise and margin/confidence-gated adaptive update, decay, explain, whole-map
+  snapshot/restore, speculative transaction, lossy consolidation (evict/freeze +
+  R3.5 prototype merge), and member-wise equality.
 - `core_check.c` - core adaptive-cell gates: clamp pressure, margin direction,
   maturity, conflict, and decay retention.
 - `task_preference.c` - contextual preference-memory toy task.
@@ -34,6 +35,11 @@ disk tier (decision D013).
 - `ledger_check.c` - decision-ledger gate: append-only, ordered, explains forgetting.
 - `consolidate_check.c` - lossy-consolidation gate: evict/freeze/epoch, revival cost,
   and full-replay-diverges vs within-epoch-matches.
+- `nn_address_check.c` - nearest-neighbour addressing + R3.5 merge gate (D019, neutral
+  doc-03 contextual-preference task): determinism, no over-fragmentation (NN folds
+  jittered contexts into a few prototypes where exact keys fragment to MAX_CELLS),
+  novelty-as-radius, radius-0 reproduces exact-key learning, merge folds duplicates
+  faithfully + lossily + deterministically, bounds.
 - `undo_check.c` - bounded-undo gate: within-horizon byte-exact, beyond-horizon and
   across-consolidation refused.
 - `cinm_selfadapt.h` / `cinm_selfadapt.c` - operator self-adaptation archive
@@ -89,6 +95,7 @@ make run-replay   # in-RAM snapshot + event replay recovery check
 make run-log-invariants # event-log replay invariant guards
 make run-ledger   # decision-ledger append-only receipts (D018)
 make run-consolidate # lossy consolidation: evict/freeze, revival cost, lossy vs within-epoch (D018)
+make run-nn-address  # NN/prototype addressing + R3.5 merge: clustering, novelty, faithful merge (D019)
 make run-undo     # bounded undo: within-horizon exact, beyond/across-epoch refused (D018)
 make run-taste-loop  # drum taste loop: context-addressing beats blind baseline (vertical O)
 make run-self-adapt  # Godel-Darwin: self-tunes decay on drift, held-out gate (vertical P)
@@ -108,7 +115,7 @@ make run-bench    # sparse vs dense crossbar microbenchmark
 All targets build with:
 
 ```sh
-cc -O2 -Wall -Wextra -Wpedantic -std=c11
+cc -O2 -Wall -Wextra -Wpedantic -std=c23
 ```
 
 The core kernel — including the adaptive update — remains libm-free; only the
@@ -165,6 +172,26 @@ undo within horizon is byte-exact: PASS
 undo beyond horizon refused: PASS
 undo across consolidation refused: PASS
 ```
+
+`make run-nn-address` exercises continuous NN/prototype addressing and R3.5 merge
+consolidation (D019) on a neutral contextual-preference task (contexts that repeat
+with variation, doc 03) and should report PASS on every line:
+
+```text
+NN addressing deterministic: PASS
+clusters, no over-fragmentation: PASS (nn cells=4==C, exact-key cells=256)
+novelty is a radius decision (allocate vs reuse): PASS
+radius-0 NN reproduces exact-key learning: PASS
+merge folds near-duplicate prototypes (faithful): PASS (merged=1 count 2->1 wr 0.910->0.957)
+merge is lossy + deterministic: PASS
+bounds (count<=MAX_CELLS, protos finite): PASS
+```
+
+The headline contrast — 4 prototype cells under NN vs MAX_CELLS=256 under exact keys
+on the same jittered stream — is the schema compression exact-symbolic keys cannot do
+(doc 22, R3.5); the kernel stays libm-free (squared-L2 distance, no `sqrt`). The
+novelty radius is the open tuning knob (doc 06); the doc-03 "addressing dominates"
+line is the pre-registered negative-result watch.
 
 `make run-taste-loop` and `make run-self-adapt` exercise the drum vertical (O, P) on
 synthetic drum-shaped data and should report PASS on every line:
@@ -306,11 +333,12 @@ This is a strictly in-memory PoC. It proves the local research invariant:
 
 ```text
 live map         = primary state (D018)
+addressing       = exact-symbolic keys or continuous NN/prototype (D019)
 in-RAM event log = evidence + within-epoch replay (recovery, not source of truth)
 decision ledger  = append-only receipts of why the map changed (audit)
 snapshot         = cheap in-RAM map copy
 rollback         = cheap in-memory reversibility
-consolidation    = lossy forgetting past the epoch boundary; undo is windowed
+consolidation    = lossy forgetting past the epoch boundary (evict/freeze + R3.5 prototype merge); undo is windowed
 ```
 
 Durable cross-restart persistence (append-only SSD log, snapshots, manifests,

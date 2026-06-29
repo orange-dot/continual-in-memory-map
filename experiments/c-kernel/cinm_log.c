@@ -5,14 +5,14 @@
 enum { EVENT_PAIRWISE = 0 };
 
 void cinm_log_init(cinm_log *l) {
-    l->events = NULL;
+    l->events = nullptr;
     l->len = 0;
     l->cap = 0;
 }
 
 void cinm_log_free(cinm_log *l) {
     free(l->events);
-    l->events = NULL;
+    l->events = nullptr;
     l->len = 0;
     l->cap = 0;
 }
@@ -53,7 +53,7 @@ static bool replay_window(const cinm_log *l, cinm_map *m, uint32_t from_seq, uin
         if (ev->seq == UINT32_MAX) { r.bad_sequence = true; break; }  /* guards +1 */
         if (ev->type != EVENT_PAIRWISE) { r.unsupported_type = true; break; }
         if (ev->seq >= from_seq && ev->seq < to_seq) {
-            size_t idx = cinm_address(m, ev->key, NULL);
+            size_t idx = cinm_address(m, ev->key, nullptr);
             if (idx == MAX_CELLS) { r.capacity_exceeded = true; break; }
             cinm_update(m, idx, ev->dphi, ev->reward, ev->seq);
             if (m->t <= ev->seq) m->t = ev->seq + 1;

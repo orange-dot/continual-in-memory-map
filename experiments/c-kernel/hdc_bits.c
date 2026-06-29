@@ -1,7 +1,6 @@
 /* hdc_bits.c — bit-packed HDC baseline: XOR bind and popcount similarity. */
 #include <stdio.h>
 #include <stdint.h>
-#include <stdbool.h>
 
 enum { HDC_WORDS = 16, HDC_BITS = HDC_WORDS * 64 };
 

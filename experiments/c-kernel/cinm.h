@@ -4,28 +4,31 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include <stdbool.h>
 
 enum { NFEAT = 8, MAX_CELLS = 256 };
-#define W_MAX 4.0f   /* weight clamp bound */
-#define ETA   0.1f   /* learning rate */
+constexpr float W_MAX = 4.0f;   /* weight clamp bound */
+constexpr float ETA   = 0.1f;   /* learning rate */
 
 /* adaptive margin-gate tuning (see cinm_update_adaptive) */
-#define MARGIN_NEAR_ZERO 0.25f  /* |margin| below this -> undecided band       */
-#define MARGIN_STRONG    1.00f  /* |margin| at/above this -> confident region  */
-#define CONF_MATURE      0.60f  /* conf at/above this -> cell is "mature"      */
-#define STEP_SMALL       0.5f   /* agree strongly -> damp the step             */
-#define STEP_MEDIUM      1.0f   /* undecided -> nominal step (== constant step) */
-#define STEP_CORRECTIVE  1.5f   /* conflict -> larger corrective step          */
-#define CONF_UP          0.05f  /* confidence gain on agreement                */
-#define CONF_DOWN        0.10f  /* confidence loss on conflict (> CONF_UP)     */
-#define PLAST_FLOOR      0.20f  /* plasticity never falls below this           */
+constexpr float MARGIN_NEAR_ZERO = 0.25f;  /* |margin| below this -> undecided band       */
+constexpr float MARGIN_STRONG    = 1.00f;  /* |margin| at/above this -> confident region  */
+constexpr float CONF_MATURE      = 0.60f;  /* conf at/above this -> cell is "mature"      */
+constexpr float STEP_SMALL       = 0.5f;   /* agree strongly -> damp the step             */
+constexpr float STEP_MEDIUM      = 1.0f;   /* undecided -> nominal step (== constant step) */
+constexpr float STEP_CORRECTIVE  = 1.5f;   /* conflict -> larger corrective step          */
+constexpr float CONF_UP          = 0.05f;  /* confidence gain on agreement                */
+constexpr float CONF_DOWN        = 0.10f;  /* confidence loss on conflict (> CONF_UP)     */
+constexpr float PLAST_FLOOR      = 0.20f;  /* plasticity never falls below this           */
 
 /* Structure-of-arrays: hot fields (scanned/scored) are kept apart from cold
  * provenance so a scan touches only the arrays it needs. A "cell" is an index. */
 typedef struct {
     /* hot — address / score / update path */
     uint32_t key[MAX_CELLS];
+    float    proto[MAX_CELLS][NFEAT];  /* continuous context key for NN addressing (D019):
+                                          the cell's address; birth-fixed, only merge moves it.
+                                          distinct from w (what the cell predicts). zero for
+                                          exact-key cells. */
     float    w[MAX_CELLS][NFEAT];
     float    plast[MAX_CELLS];
     float    conf[MAX_CELLS];
@@ -49,7 +52,14 @@ static inline float clampf(float x, float lo, float hi) {
 static inline float absf(float x) { return x < 0.0f ? -x : x; }
 
 void   cinm_init(cinm_map *m);
-size_t cinm_address(cinm_map *m, uint32_t key, bool *was_novel); /* index; MAX_CELLS if full */
+[[nodiscard]] size_t cinm_address(cinm_map *m, uint32_t key, bool *was_novel); /* index; MAX_CELLS if full */
+/* Continuous nearest-neighbour addressing (D019): the in-use cell whose prototype is
+ * within radius2 (squared L2) of ctx, else a fresh cell whose prototype is ctx itself.
+ * Prototype is birth-fixed (only merge consolidation moves it) and the distance is
+ * libm-free. radius2 == 0 with one-hot ctx degenerates to exact-key addressing, so NN
+ * strictly generalizes cinm_address. Returns MAX_CELLS if the map is full. */
+[[nodiscard]] size_t cinm_address_nn(cinm_map *m, const float ctx[static NFEAT],
+                                     float radius2, bool *was_novel);
 float  cinm_score(const cinm_map *m, size_t i, const float phi[static NFEAT]);
 
 /* Margin of the update direction dphi against cell i: the same dot product as
@@ -89,29 +99,32 @@ bool   cinm_transaction(cinm_map *m, bool (*candidate)(cinm_map *, void *), void
  * within-epoch replay/undo then runs from base_seq, not from seq 0. */
 void   cinm_epoch_advance(cinm_map *m, uint32_t new_base_seq);
 
-/* Consolidation policy (D018, R3). Exact-symbolic keys mean there is no redundancy to
- * merge, so consolidation is evict-dead + freeze-strong only; schema/merge compression
- * waits on nearest-neighbour addressing (doc 06, R3.5). */
+/* Consolidation policy (D018, R3 + R3.5). Evict-dead + freeze-strong applies to any map;
+ * with nearest-neighbour addressing (D019) consolidation also merges near-duplicate
+ * prototypes into one (schema compression, R3.5) when merge_radius2 > 0. Exact-key callers
+ * leave merge_radius2 at 0 and get the original evict+freeze behaviour. */
 typedef struct {
     float    evict_floor;      /* evict candidates have max|w| <= this (decay-emptied) ... */
     float    evict_conf_max;   /*   ... and conf <= this (weak) ...                        */
     uint32_t evict_idle_age;   /*   ... and (now - last_touched) >= this (stale).          */
     float    promote_conf;     /* freeze candidates have conf >= this ...                  */
     uint32_t promote_evidence; /*   ... and evidence >= this (well-corroborated).          */
+    float    merge_radius2;    /* fold non-frozen prototype pairs within this sq-dist; 0 = off */
 } cinm_consolidate_policy;
 
 typedef struct {
-    uint32_t evicted;          /* dead cells dropped (lossy)                  */
-    uint32_t promoted;         /* strong cells frozen (protected; not lossy)  */
+    uint32_t evicted;          /* dead cells dropped (lossy)                       */
+    uint32_t promoted;         /* strong cells frozen (protected; not lossy)       */
+    uint32_t merged;           /* near-duplicate prototypes folded away (lossy, R3.5) */
 } cinm_consolidate_result;
 
-/* Lossy consolidation: freeze the strong, evict the dead-and-stale, compact the map,
- * and advance the epoch to new_base_seq. Frozen cells are never evicted and are exempt
- * from decay. The caller records a receipt in the decision ledger (R2). After this,
- * full-log replay no longer reconstructs the map; within-epoch replay from a
- * post-consolidation snapshot does. */
-cinm_consolidate_result cinm_consolidate(cinm_map *m, const cinm_consolidate_policy *p,
-                                         uint32_t now, uint32_t new_base_seq);
+/* Lossy consolidation: merge near-duplicate prototypes (R3.5, if merge_radius2 > 0), freeze
+ * the strong, evict the dead-and-stale, compact the map, and advance the epoch to
+ * new_base_seq. Frozen cells never merge, are never evicted, and are exempt from decay. The
+ * caller records a receipt in the decision ledger (R2). After this, full-log replay no longer
+ * reconstructs the map; within-epoch replay from a post-consolidation snapshot does. */
+[[nodiscard]] cinm_consolidate_result cinm_consolidate(cinm_map *m, const cinm_consolidate_policy *p,
+                                                       uint32_t now, uint32_t new_base_seq);
 
 /* Member-wise semantic equality: count, clock, and the full arrays (cinm_init
  * zeroes unused cells), ignoring struct padding. Verifies that rollback and

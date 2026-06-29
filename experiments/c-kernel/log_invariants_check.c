@@ -3,7 +3,6 @@
 #include "cinm_log.h"
 #include <stdio.h>
 #include <stdint.h>
-#include <stdbool.h>
 
 static cinm_event one_event(uint32_t seq) {
     cinm_event ev = { .seq = seq, .type = 0, .key = 7, .reward = 1.0f };

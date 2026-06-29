@@ -2,11 +2,10 @@
 #include "cinm.h"
 #include <stdio.h>
 #include <stdint.h>
-#include <stdbool.h>
 #include <math.h>
 
 enum { NCTX = 3, NSTEPS = 5000, EVAL = 800, RND_BITS = 24 };
-#define SEED 0x3141592653589793ULL
+constexpr uint64_t SEED = 0x3141592653589793ULL;
 
 static uint64_t rng_state = SEED;
 
@@ -92,7 +91,7 @@ static void train_once(cinm_map *m, float w_true[NCTX][NFEAT], rule_fn update,
     if (reverse) { const float *tmp = win; win = los; los = tmp; }
     for (int k = 0; k < NFEAT; k++)
         dphi[k] = win[k] - los[k];
-    size_t i = cinm_address(m, ctx, NULL);
+    size_t i = cinm_address(m, ctx, nullptr);
     if (conflicts && m->evidence[i] > 50 && margin_of(m, i, dphi) < -0.25f)
         (*conflicts)++;
     update(m, i, dphi, 1.0f, step);
@@ -102,7 +101,7 @@ static void train_once(cinm_map *m, float w_true[NCTX][NFEAT], rule_fn update,
 static float eval_win(cinm_map *m, float w_true[NCTX][NFEAT]) {
     int hit = 0;
     for (uint32_t c = 0; c < NCTX; c++) {
-        size_t i = cinm_address(m, c, NULL);
+        size_t i = cinm_address(m, c, nullptr);
         for (int e = 0; e < EVAL; e++) {
             float pa[NFEAT], pb[NFEAT];
             random_features(pa);
@@ -123,7 +122,7 @@ static metrics run_rule(rule_fn update, bool confidence) {
     cinm_map m;
     cinm_init(&m);
     for (uint32_t step = 0; step < NSTEPS; step++)
-        train_once(&m, w_true, update, step, false, NULL);
+        train_once(&m, w_true, update, step, false, nullptr);
     metrics out = { eval_win(&m, w_true), 0.0f, 0.0f };
     long total = 0, clamped = 0;
     double sum = 0.0;
@@ -146,7 +145,7 @@ static bool negative_reward_pass(void) {
     float dphi[NFEAT];
     for (int k = 0; k < NFEAT; k++)
         dphi[k] = 1.0f;
-    size_t i = cinm_address(&m, 99, NULL);
+    size_t i = cinm_address(&m, 99, nullptr);
     for (uint32_t t = 0; t < 60; t++)
         cinm_update(&m, i, dphi, 1.0f, t);
     float before = margin_of(&m, i, dphi);
@@ -163,7 +162,7 @@ static bool decay_pass(void) {
     cinm_map m;
     cinm_init(&m);
     for (uint32_t step = 0; step < NSTEPS; step++)
-        train_once(&m, w_true, update_sigma, step, false, NULL);
+        train_once(&m, w_true, update_sigma, step, false, nullptr);
     for (size_t i = 0; i < m.count; i++)
         for (int k = 0; k < NFEAT; k++)
             m.w[i][k] *= 0.90f;
@@ -178,7 +177,7 @@ static bool conflict_pass(void) {
     cinm_init(&m);
     int conflicts = 0;
     for (uint32_t step = 0; step < 1800; step++)
-        train_once(&m, w_true, update_sigma, step, false, NULL);
+        train_once(&m, w_true, update_sigma, step, false, nullptr);
     for (uint32_t step = 1800; step < 2400; step++)
         train_once(&m, w_true, update_sigma, step, true, &conflicts);
     return conflicts > 50;

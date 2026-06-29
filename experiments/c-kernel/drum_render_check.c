@@ -17,9 +17,9 @@
 #define LEARN  "testdata/drum_events.learn"
 #define RUNDIR "runs/cim-drum-m2-render"
 enum { FIT_CTX = 0, G_SEED = 64, G_ITERS = 6000 };
-#define MUT 0.15f
-#define MARGIN_MIN 0.10f          /* taste-adapted must beat baseline by at least this     */
-#define ARCHIVE_SEED 0x0DDC0FFEE5EEDULL
+constexpr float MUT = 0.15f;
+constexpr float MARGIN_MIN = 0.10f;          /* taste-adapted must beat baseline by at least this     */
+constexpr uint64_t ARCHIVE_SEED = 0x0DDC0FFEE5EEDULL;
 
 static uint64_t rng = 0;
 static uint64_t nx(void) {
@@ -33,7 +33,7 @@ static float rnd01(void) { return (float)(nx() >> 40) / (float)(1u << 24); }
 static void train(cinm_map *m, const cinm_drum_ingest *in) {
     cinm_init(m);
     for (size_t i = 0; i < in->train_len; i++) {
-        size_t c = cinm_address(m, in->train[i].key, NULL);
+        size_t c = cinm_address(m, in->train[i].key, nullptr);
         cinm_update_adaptive(m, c, in->train[i].dphi, in->train[i].reward, in->train[i].seq);
     }
 }
@@ -198,7 +198,7 @@ int main(void) {
     }
     cinm_map M;
     train(&M, &in);
-    size_t cell0 = cinm_address(&M, FIT_CTX, NULL);
+    size_t cell0 = cinm_address(&M, FIT_CTX, nullptr);
 
     float adapted[NFEAT], baseline[NFEAT];
     for (int k = 0; k < NFEAT; k++) baseline[k] = 0.5f;   /* generic flat "session" groove */
@@ -212,7 +212,7 @@ int main(void) {
     /* encode + re-parse + determinism */
     unsigned char b1[CINM_RENDER_SMF_MAX], b2[CINM_RENDER_SMF_MAX];
     size_t n1 = cinm_drum_render_encode(adapted, b1, sizeof b1, &v.loss);
-    size_t n2 = cinm_drum_render_encode(adapted, b2, sizeof b2, NULL);
+    size_t n2 = cinm_drum_render_encode(adapted, b2, sizeof b2, nullptr);
     v.smf_bytes = n1;
     v.valid  = smf_valid(b1, n1) && v.loss.note_count > 0;
     v.determ = n1 > 0 && n1 == n2 && memcmp(b1, b2, n1) == 0;

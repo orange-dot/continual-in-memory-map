@@ -7,7 +7,6 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include <stdbool.h>
 
 /* A candidate operator: a proposed hyperparameter value (e.g. a decay factor). */
 typedef struct {

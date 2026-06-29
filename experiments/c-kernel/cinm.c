@@ -11,6 +11,23 @@ void cinm_init(cinm_map *m) {
     m->eta = ETA;          /* runtime learning rate; self-adaptation (P) may tune it */
 }
 
+/* Allocate and zero-initialize a fresh cell at the tail; MAX_CELLS if the map is full.
+ * Shared by exact (cinm_address) and nearest-neighbour (cinm_address_nn) addressing so
+ * both modes birth a cell identically. The caller sets the address field (key or proto). */
+static size_t alloc_cell(cinm_map *m) {
+    if (m->count >= MAX_CELLS) return MAX_CELLS;       /* bounded growth */
+    size_t i = m->count++;
+    for (int k = 0; k < NFEAT; k++) { m->w[i][k] = 0.0f; m->proto[i][k] = 0.0f; }
+    m->plast[i]        = 1.0f;
+    m->conf[i]         = 0.0f;
+    m->evidence[i]     = 0;
+    m->born[i]         = m->t;
+    m->last_touched[i] = m->t;
+    m->in_use[i]       = true;
+    m->frozen[i]       = false;
+    return i;
+}
+
 size_t cinm_address(cinm_map *m, uint32_t key, bool *was_novel) {
     for (size_t i = 0; i < m->count; i++) {
         if (m->in_use[i] && m->key[i] == key) {
@@ -18,19 +35,45 @@ size_t cinm_address(cinm_map *m, uint32_t key, bool *was_novel) {
             return i;
         }
     }
-    if (m->count >= MAX_CELLS) {            /* bounded growth */
+    size_t i = alloc_cell(m);
+    if (i == MAX_CELLS) {
         if (was_novel) *was_novel = false;
         return MAX_CELLS;
     }
-    size_t i = m->count++;
     m->key[i] = key;
-    for (int k = 0; k < NFEAT; k++) m->w[i][k] = 0.0f;
-    m->plast[i] = 1.0f;
-    m->conf[i] = 0.0f;
-    m->evidence[i] = 0;
-    m->born[i] = m->t;
-    m->last_touched[i] = m->t;
-    m->in_use[i] = true;
+    if (was_novel) *was_novel = true;
+    return i;
+}
+
+/* Squared L2 distance between cell i's prototype and ctx (libm-free: no sqrt). */
+static float proto_dist2(const cinm_map *m, size_t i, const float ctx[static NFEAT]) {
+    float s = 0.0f;
+    for (int k = 0; k < NFEAT; k++) {
+        float d = m->proto[i][k] - ctx[k];
+        s += d * d;
+    }
+    return s;
+}
+
+size_t cinm_address_nn(cinm_map *m, const float ctx[static NFEAT], float radius2, bool *was_novel) {
+    size_t best    = MAX_CELLS;
+    float  best_d2 = radius2;                       /* a cell qualifies only within the radius */
+    for (size_t i = 0; i < m->count; i++) {
+        if (!m->in_use[i]) continue;
+        float d2 = proto_dist2(m, i, ctx);
+        if (d2 <= best_d2) { best_d2 = d2; best = i; }
+    }
+    if (best != MAX_CELLS) {                         /* hit: birth-fixed proto, no state change */
+        if (was_novel) *was_novel = false;
+        return best;
+    }
+    size_t i = alloc_cell(m);                        /* miss: a fresh prototype anchored at ctx */
+    if (i == MAX_CELLS) {
+        if (was_novel) *was_novel = false;
+        return MAX_CELLS;
+    }
+    for (int k = 0; k < NFEAT; k++) m->proto[i][k] = ctx[k];
+    m->key[i] = (uint32_t)i;                         /* provenance id for explain; address is proto */
     if (was_novel) *was_novel = true;
     return i;
 }
@@ -157,7 +200,38 @@ static float cell_strength(const cinm_map *m, size_t i) {
 
 cinm_consolidate_result cinm_consolidate(cinm_map *m, const cinm_consolidate_policy *p,
                                          uint32_t now, uint32_t new_base_seq) {
-    cinm_consolidate_result res = { .evicted = 0, .promoted = 0 };
+    cinm_consolidate_result res = { .evicted = 0, .promoted = 0, .merged = 0 };
+
+    /* Pass 0: merge (R3.5, D019). Fold each non-frozen cell into an earlier non-frozen cell
+     * whose prototype is within merge_radius2 — schema compression that exact keys cannot do.
+     * Evidence-weighted blend of address (proto) and content (w); the folded cell is freed and
+     * reclaimed by the compaction below. Single pass, O(count^2 * NFEAT): fine at MAX_CELLS and
+     * off the hot path. Skipped entirely when merge_radius2 == 0 (exact-key callers). */
+    if (p->merge_radius2 > 0.0f) {
+        for (size_t j = 0; j < m->count; j++) {
+            if (!m->in_use[j] || m->frozen[j]) continue;
+            for (size_t i = 0; i < j; i++) {
+                if (!m->in_use[i] || m->frozen[i]) continue;
+                if (proto_dist2(m, i, m->proto[j]) > p->merge_radius2) continue;
+
+                float ei = (float)m->evidence[i], ej = (float)m->evidence[j];
+                float tot = ei + ej;
+                float wi = tot > 0.0f ? ei / tot : 0.5f;
+                float wj = tot > 0.0f ? ej / tot : 0.5f;
+                for (int k = 0; k < NFEAT; k++) {
+                    m->proto[i][k] = wi * m->proto[i][k] + wj * m->proto[j][k];
+                    m->w[i][k]     = wi * m->w[i][k]     + wj * m->w[j][k];
+                }
+                m->evidence[i] += m->evidence[j];
+                if (m->conf[j] > m->conf[i])                 m->conf[i] = m->conf[j];
+                if (m->born[j] < m->born[i])                 m->born[i] = m->born[j];
+                if (m->last_touched[j] > m->last_touched[i]) m->last_touched[i] = m->last_touched[j];
+                m->in_use[j] = false;
+                res.merged++;
+                break;                          /* j is folded away; on to the next cell */
+            }
+        }
+    }
 
     /* Pass 1: mark. Freeze the strong (frozen, plasticity floored); evict the
      * weak-and-stale that decay has already emptied. A frozen cell is never evicted. */
@@ -186,7 +260,7 @@ cinm_consolidate_result cinm_consolidate(cinm_map *m, const cinm_consolidate_pol
         if (!m->in_use[s]) continue;
         if (d != s) {
             m->key[d] = m->key[s];
-            for (int k = 0; k < NFEAT; k++) m->w[d][k] = m->w[s][k];
+            for (int k = 0; k < NFEAT; k++) { m->w[d][k] = m->w[s][k]; m->proto[d][k] = m->proto[s][k]; }
             m->plast[d]        = m->plast[s];
             m->conf[d]         = m->conf[s];
             m->evidence[d]     = m->evidence[s];
@@ -199,7 +273,7 @@ cinm_consolidate_result cinm_consolidate(cinm_map *m, const cinm_consolidate_pol
     }
     for (size_t i = d; i < m->count; i++) {
         m->key[i] = 0;
-        for (int k = 0; k < NFEAT; k++) m->w[i][k] = 0.0f;
+        for (int k = 0; k < NFEAT; k++) { m->w[i][k] = 0.0f; m->proto[i][k] = 0.0f; }
         m->plast[i]        = 0.0f;
         m->conf[i]         = 0.0f;
         m->evidence[i]     = 0;
@@ -221,6 +295,7 @@ bool cinm_equal(const cinm_map *a, const cinm_map *b) {
         && a->base_seq == b->base_seq
         && a->eta == b->eta
         && memcmp(a->key, b->key, sizeof a->key) == 0
+        && memcmp(a->proto, b->proto, sizeof a->proto) == 0
         && memcmp(a->w, b->w, sizeof a->w) == 0
         && memcmp(a->plast, b->plast, sizeof a->plast) == 0
         && memcmp(a->conf, b->conf, sizeof a->conf) == 0

@@ -10,7 +10,6 @@
 #include "cinm.h"
 #include "cinm_log.h"
 #include <stddef.h>
-#include <stdbool.h>
 
 enum { CINM_DRUM_MAX_EVENTS = 256, CINM_DRUM_ID_MAX = 48 };
 

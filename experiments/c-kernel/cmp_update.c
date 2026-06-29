@@ -8,7 +8,7 @@
 
 enum { NCTX = 3, NSTEPS = 6000, EVAL = 1000 };
 enum { RND_BITS = 24 };
-#define SEED 0x123456789ABCDEFULL
+constexpr uint64_t SEED = 0x123456789ABCDEFULL;
 
 static uint64_t rng_state = SEED;
 static uint64_t nx(void) {
@@ -73,7 +73,7 @@ static void run_experiment(update_fn update, metrics *out) {
         const float *win = (sa >= sb) ? pa : pb;
         const float *los = (sa >= sb) ? pb : pa;
 
-        size_t i = cinm_address(&map, ctx, NULL);
+        size_t i = cinm_address(&map, ctx, nullptr);
         float dphi[NFEAT];
         for (int k = 0; k < NFEAT; k++) dphi[k] = win[k] - los[k];
 
@@ -96,7 +96,7 @@ static void run_experiment(update_fn update, metrics *out) {
 
     for (uint32_t c = 0; c < NCTX; c++) {
         int hit = 0;
-        size_t i = cinm_address(&map, c, NULL);
+        size_t i = cinm_address(&map, c, nullptr);
         for (int e = 0; e < EVAL; e++) {
             float pa[NFEAT], pb[NFEAT];
             random_features(pa);
