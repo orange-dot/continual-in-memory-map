@@ -459,3 +459,52 @@ Consequence:
   determinism; consolidation is outside the reversible envelope), and strengthens
   doc 19 claim boundaries. The c-kernel doc/comment surface is corrected as part
   of the refactor that follows this decision.
+
+## D019: Nearest-Neighbour / Prototype Addressing (Alongside Exact-Symbolic Keys)
+
+Decision:
+
+The kernel gains a continuous nearest-neighbour (prototype) addressing mode
+(`cinm_address_nn`) alongside the existing exact-symbolic keys (`cinm_address`). A
+cell carries a continuous `proto[NFEAT]` context vector as its address; a query
+addresses the in-use cell whose prototype is within a novelty radius (squared L2,
+libm-free), else it allocates a fresh cell anchored at the query. The prototype is
+birth-fixed — only merge consolidation moves it. Exact-symbolic keys remain the
+default path and are byte-unchanged (`proto` is zero for them); radius 0 with a
+one-hot context degenerates to exact addressing, so NN strictly generalizes the
+exact path.
+
+This resolves the lead Addressing Question in doc 06 ("exact symbolic keys first, or
+continuous nearest-neighbour keys first?") with *both* — exact first, NN added — and
+unblocks R3.5 (doc 22).
+
+Reason:
+
+A learner's reason to exist is local compression (D002, D003, D018: "the cell is the
+compressed sufficient statistic of the evidence that addressed it"). Under
+exact-symbolic keys every distinct context is its own cell, so "the same context with
+variation" fragments without bound and consolidation can only evict-dead and
+freeze-strong — there is no redundancy to compress (the R3 ceiling, doc 22).
+Prototype addressing lets near-identical contexts share a cell, and lets
+consolidation merge near-duplicate prototypes into one (schema compression). That is
+the local compression the substrate claims, made structural.
+
+Consequence:
+
+- Additive: NN is a parallel mode; the exact path and all its green gates are
+  untouched. Merge is opt-in via `merge_radius2` (0 = off).
+- Unblocks R3.5 (doc 22): `cinm_consolidate` now merges near-duplicate prototypes
+  (evidence-weighted blend, frozen-exempt, receipted, genuinely lossy). It answers
+  doc 06's "how should novelty be detected" (a radius threshold) and "what prevents
+  over-fragmentation" (novelty radius + merge radius) with measured numbers
+  (`run-nn-address`).
+- The gate `run-nn-address` is neutral (contextual preference with variation, doc 03),
+  no drum dependency. Its headline: NN folds jittered contexts into a few prototypes
+  where exact keys fragment to the cell ceiling.
+- Pre-registered negative-result watch (doc 03): if addressing turns out to dominate
+  every other design choice, that is a recorded result, not a silent win.
+- Deferred, not dropped: cell *splitting* (the inverse of merge); replayable NN
+  addressing (the event log stays exact-key — `cinm_event` carries `key`, not a
+  context vector); an EMA / drift-tracking prototype (birth-fixed ships first).
+- The kernel stays libm-free (squared-L2 distance, no sqrt) and RAM-only (D013); the
+  `cinm_` prefix is unchanged.

@@ -12,14 +12,26 @@
 
 ## Addressing Questions
 
-- Exact symbolic keys first, or continuous nearest-neighbor keys first? (This now
-  also gates schema/merge consolidation — R3.5, doc 22: prototype compression needs
-  nearest-neighbour addressing; exact keys cap consolidation at evict + freeze.)
-- Should addressing be learned or fixed?
+- ~~Exact symbolic keys first, or continuous nearest-neighbor keys first?~~
+  **Resolved (D019): both — exact-symbolic keys stay the default; continuous
+  nearest-neighbour / prototype addressing (`cinm_address_nn`) is added alongside and
+  unblocks R3.5 merge consolidation (doc 22). Radius 0 + one-hot context degenerates
+  to exact addressing, so NN strictly generalizes the exact path.**
+- Should addressing be learned or fixed? (Partial answer, D019: the prototype is
+  birth-fixed — set to the first context that allocates a cell, moved only by merge.
+  A learned/drifting prototype (EMA) is a noted future knob.)
 - How many cells should activate per event?
-- How should novelty be detected?
-- What prevents over-fragmentation into too many cells?
-- What prevents over-generalization into cells that match too broadly?
+- How should novelty be detected? (Partial answer, D019: a squared-L2 distance
+  threshold — a context beyond the novelty radius of every prototype allocates a new
+  cell; within it, reuses. libm-free.)
+- What prevents over-fragmentation into too many cells? (Partial answer, D019: the
+  novelty radius clusters jittered contexts onto one prototype, and merge
+  consolidation (R3.5) folds near-duplicate prototypes; `run-nn-address` measures it —
+  NN holds a handful of cells where exact keys fragment to the cell ceiling.)
+- What prevents over-generalization into cells that match too broadly? (Partial,
+  D019: bounded by the novelty radius — too large a radius over-generalizes; the
+  radius is the open tuning knob, and the doc-03 "addressing dominates" negative
+  result is the watch.)
 
 ## Learning Questions
 
