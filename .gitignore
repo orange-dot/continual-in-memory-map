@@ -13,6 +13,7 @@ experiments/c-kernel/learning
 experiments/c-kernel/ledger
 experiments/c-kernel/log-invariants
 experiments/c-kernel/memory
+experiments/c-kernel/nn-address
 experiments/c-kernel/preference
 experiments/c-kernel/preference-native
 experiments/c-kernel/replay

@@ -1,7 +1,7 @@
 CC     ?= cc
-CFLAGS ?= -O2 -Wall -Wextra -Wpedantic -std=c11
-NATIVE_CFLAGS ?= -O3 -march=native -Wall -Wextra -Wpedantic -std=c11
-VEC_CFLAGS ?= -O3 -march=native -fopt-info-vec-optimized -fopt-info-vec-missed -Wall -Wextra -Wpedantic -std=c11
+CFLAGS ?= -O2 -Wall -Wextra -Wpedantic -std=c23
+NATIVE_CFLAGS ?= -O3 -march=native -Wall -Wextra -Wpedantic -std=c23
+VEC_CFLAGS ?= -O3 -march=native -fopt-info-vec-optimized -fopt-info-vec-missed -Wall -Wextra -Wpedantic -std=c23
 
 preference: cinm.c task_preference.c cinm.h
 	$(CC) $(CFLAGS) -o preference cinm.c task_preference.c
@@ -35,6 +35,9 @@ ledger: ledger_check.c cinm_ledger.c cinm_ledger.h
 
 consolidate: consolidate_check.c cinm.c cinm_log.c cinm_ledger.c cinm.h cinm_log.h cinm_ledger.h
 	$(CC) $(CFLAGS) -o consolidate consolidate_check.c cinm.c cinm_log.c cinm_ledger.c
+
+nn-address: nn_address_check.c cinm.c cinm_ledger.c cinm.h cinm_ledger.h
+	$(CC) $(CFLAGS) -o nn-address nn_address_check.c cinm.c cinm_ledger.c
 
 undo: undo_check.c cinm.c cinm_log.c cinm_undo.c cinm.h cinm_log.h cinm_undo.h
 	$(CC) $(CFLAGS) -o undo undo_check.c cinm.c cinm_log.c cinm_undo.c
@@ -105,6 +108,9 @@ run-ledger: ledger
 run-consolidate: consolidate
 	./consolidate
 
+run-nn-address: nn-address
+	./nn-address
+
 run-undo: undo
 	./undo
 
@@ -141,7 +147,7 @@ native: preference-native
 	./preference-native
 
 clean:
-	rm -f preference bench cmp learning txn core-check replay log-invariants memory ledger consolidate undo taste selfadapt drum-adapter drum-features drum-e2e drum-gate groove-archive drum-render hdc-bits preference-native *.o
+	rm -f preference bench cmp learning txn core-check replay log-invariants memory ledger consolidate nn-address undo taste selfadapt drum-adapter drum-features drum-e2e drum-gate groove-archive drum-render hdc-bits preference-native *.o
 	rm -rf runs
 
-.PHONY: run run-bench run-cmp run-learning run-txn run-core-check run-replay run-log-invariants run-memory run-ledger run-consolidate run-undo run-taste-loop run-self-adapt run-drum-adapter run-drum-features run-drum-e2e run-drum-gate run-groove-archive run-drum-render run-hdc native vec-report clean
+.PHONY: run run-bench run-cmp run-learning run-txn run-core-check run-replay run-log-invariants run-memory run-ledger run-consolidate run-nn-address run-undo run-taste-loop run-self-adapt run-drum-adapter run-drum-features run-drum-e2e run-drum-gate run-groove-archive run-drum-render run-hdc native vec-report clean
