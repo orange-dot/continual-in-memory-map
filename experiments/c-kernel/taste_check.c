@@ -42,7 +42,7 @@ static float winrate_ctx(cinm_map *m, uint32_t ctx, bool blind, int trials) {
     for (int n = 0; n < trials; n++) {
         float a[NFEAT], b[NFEAT], ta = 0.0f, tb = 0.0f;
         for (int k = 0; k < NFEAT; k++) { a[k] = rnd01(); b[k] = rnd01(); ta += w_true[ctx][k]*a[k]; tb += w_true[ctx][k]*b[k]; }
-        size_t i = cinm_address(m, blind ? 0u : ctx, NULL);
+        size_t i = cinm_address(m, blind ? 0u : ctx, nullptr);
         if ((ta >= tb) == (cinm_score(m, i, a) >= cinm_score(m, i, b))) correct++;
     }
     return (float)correct / (float)trials;
@@ -65,8 +65,8 @@ int main(void) {
         float dphi[NFEAT];
         uint32_t ctx = (uint32_t)(nx() % NCTX);
         gen(ctx, dphi);
-        cinm_update(&M,  cinm_address(&M,  ctx, NULL), dphi, 1.0f, (uint32_t)t);
-        cinm_update(&Bl, cinm_address(&Bl, 0u,  NULL), dphi, 1.0f, (uint32_t)t);
+        cinm_update(&M,  cinm_address(&M,  ctx, nullptr), dphi, 1.0f, (uint32_t)t);
+        cinm_update(&Bl, cinm_address(&Bl, 0u,  nullptr), dphi, 1.0f, (uint32_t)t);
     }
     float wr_cim  = winrate_all(&M,  false, EVAL / NCTX);
     float wr_base = winrate_all(&Bl, true,  EVAL / NCTX);
@@ -80,15 +80,15 @@ int main(void) {
     uint32_t tk = 0;
     for (int s = 0; s < PER_CTX; s++, tk++) {
         float dphi[NFEAT]; gen(0u, dphi);
-        cinm_update(&Mr, cinm_address(&Mr, 0u, NULL), dphi, 1.0f, tk);
-        cinm_update(&Br, cinm_address(&Br, 0u, NULL), dphi, 1.0f, tk);
+        cinm_update(&Mr, cinm_address(&Mr, 0u, nullptr), dphi, 1.0f, tk);
+        cinm_update(&Br, cinm_address(&Br, 0u, nullptr), dphi, 1.0f, tk);
     }
     float mr_before = winrate_ctx(&Mr, 0u, false, EVAL);
     float br_before = winrate_ctx(&Br, 0u, true,  EVAL);
     for (int s = 0; s < PER_CTX; s++, tk++) {
         float dphi[NFEAT]; gen(1u, dphi);
-        cinm_update(&Mr, cinm_address(&Mr, 1u, NULL), dphi, 1.0f, tk);
-        cinm_update(&Br, cinm_address(&Br, 0u, NULL), dphi, 1.0f, tk);
+        cinm_update(&Mr, cinm_address(&Mr, 1u, nullptr), dphi, 1.0f, tk);
+        cinm_update(&Br, cinm_address(&Br, 0u, nullptr), dphi, 1.0f, tk);
     }
     float mr_after = winrate_ctx(&Mr, 0u, false, EVAL);
     float br_after = winrate_ctx(&Br, 0u, true,  EVAL);
@@ -106,7 +106,7 @@ int main(void) {
     for (; seq < UNDO_STEPS; seq++) {
         cinm_event ev = { .seq = seq, .type = 0, .key = (uint32_t)(nx() % NCTX), .reward = 1.0f };
         gen(ev.key, ev.dphi);
-        cinm_update(&Mu, cinm_address(&Mu, ev.key, NULL), ev.dphi, ev.reward, seq);
+        cinm_update(&Mu, cinm_address(&Mu, ev.key, nullptr), ev.dphi, ev.reward, seq);
         Mu.t = seq + 1;
         cinm_log_append(&lg, &ev);
         cinm_undo_mark(&u, &Mu, seq + 1);

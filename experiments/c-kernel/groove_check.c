@@ -13,9 +13,9 @@
 
 #define LEARN "testdata/drum_events.learn"
 enum { FIT_CTX = 0, G_SEED = 64, G_ITERS = 6000 };
-#define MUT 0.15f                 /* per-gene mutation jitter, clamped to [0,1]            */
-#define COVER_MIN 32              /* filled niches required of 36: selection must illuminate */
-#define ARCHIVE_SEED 0x0DDC0FFEE5EEDULL
+constexpr float MUT = 0.15f;                 /* per-gene mutation jitter, clamped to [0,1]            */
+constexpr int COVER_MIN = 32;              /* filled niches required of 36: selection must illuminate */
+constexpr uint64_t ARCHIVE_SEED = 0x0DDC0FFEE5EEDULL;
 
 static uint64_t rng = 0;
 static uint64_t nx(void) {
@@ -30,7 +30,7 @@ static float rnd01(void) { return (float)(nx() >> 40) / (float)(1u << 24); }
 static void train(cinm_map *m, const cinm_drum_ingest *in) {
     cinm_init(m);
     for (size_t i = 0; i < in->train_len; i++) {
-        size_t c = cinm_address(m, in->train[i].key, NULL);
+        size_t c = cinm_address(m, in->train[i].key, nullptr);
         cinm_update_adaptive(m, c, in->train[i].dphi, in->train[i].reward, in->train[i].seq);
     }
 }
@@ -145,7 +145,7 @@ int main(void) {
     }
     cinm_map M;
     train(&M, &in);
-    size_t cell0 = cinm_address(&M, FIT_CTX, NULL);
+    size_t cell0 = cinm_address(&M, FIT_CTX, nullptr);
 
     cinm_groove_archive a, b;
     double seed_mean = 0.0, seed_mean_b = 0.0;

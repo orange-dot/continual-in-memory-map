@@ -8,7 +8,6 @@
 #include "cinm.h"
 #include <stdint.h>
 #include <stddef.h>
-#include <stdbool.h>
 
 /* A layout-independent learning event — evidence, replayable within an epoch.
  * Records semantics, not in-memory layout, so it survives kernel refactors. */

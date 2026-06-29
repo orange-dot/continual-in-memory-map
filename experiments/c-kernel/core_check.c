@@ -3,7 +3,6 @@
 #include "cinm.h"
 #include <stdio.h>
 #include <stdint.h>
-#include <stdbool.h>
 
 /* A uniform +1 feature direction, so margin == the sum of the cell's weights. */
 static void uniform(float v[static NFEAT], float x) {
@@ -13,7 +12,7 @@ static void uniform(float v[static NFEAT], float x) {
 /* One fresh cell in a fresh map; returns its index. */
 static size_t fresh_cell(cinm_map *m) {
     cinm_init(m);
-    return cinm_address(m, 1, NULL);
+    return cinm_address(m, 1, nullptr);
 }
 
 /* Adaptive damps the step as a cell commits, so it saturates far less often than

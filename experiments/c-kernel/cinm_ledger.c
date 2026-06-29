@@ -3,14 +3,14 @@
 #include <stdlib.h>
 
 void cinm_ledger_init(cinm_ledger *l) {
-    l->items = NULL;
+    l->items = nullptr;
     l->len = 0;
     l->cap = 0;
 }
 
 void cinm_ledger_free(cinm_ledger *l) {
     free(l->items);
-    l->items = NULL;
+    l->items = nullptr;
     l->len = 0;
     l->cap = 0;
 }

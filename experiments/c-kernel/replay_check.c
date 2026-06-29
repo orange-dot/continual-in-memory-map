@@ -52,7 +52,7 @@ int main(void) {
         const float *win = (sa >= sb) ? pa : pb;
         const float *los = (sa >= sb) ? pb : pa;
 
-        size_t i = cinm_address(&M, ctx, NULL);
+        size_t i = cinm_address(&M, ctx, nullptr);
         if (i == MAX_CELLS) { printf("map full\n"); cinm_log_free(&log); return 1; }
         cinm_event ev = { .seq = step, .type = 0, .key = ctx, .reward = 1.0f };
         for (int k = 0; k < NFEAT; k++) ev.dphi[k] = win[k] - los[k];

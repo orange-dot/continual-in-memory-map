@@ -2,7 +2,6 @@
 #include "cinm.h"
 #include <stdio.h>
 #include <stdint.h>
-#include <stdbool.h>
 
 enum { NCTX = 3, NSTEPS = 6000, WINDOW = 300, EVAL = 1000 };
 enum { RND_BITS = 24 };
@@ -55,7 +54,7 @@ int main(void) {
         const float *win = (sa >= sb) ? pa : pb;
         const float *los = (sa >= sb) ? pb : pa;
 
-        size_t cell = cinm_address(&map, ctx, NULL);
+        size_t cell = cinm_address(&map, ctx, nullptr);
 
         /* Predict before learning; ties -> coin flip. */
         float sw = cinm_score(&map, cell, win), sl = cinm_score(&map, cell, los);
@@ -81,7 +80,7 @@ int main(void) {
     printf("\nper-context win-rate after training (%d fresh trials each):\n", EVAL);
     for (uint32_t c = 0; c < NCTX; c++) {
         int hit = 0;
-        size_t cell = cinm_address(&map, c, NULL);
+        size_t cell = cinm_address(&map, c, nullptr);
         for (int i = 0; i < EVAL; i++) {
             float pa[NFEAT], pb[NFEAT];
             random_features(pa);
@@ -97,6 +96,6 @@ int main(void) {
 
     printf("\ncells allocated: %zu / %d\n", map.count, MAX_CELLS);
     printf("\nexample cell (context 0):\n");
-    cinm_explain(&map, cinm_address(&map, 0, NULL), map.t);
+    cinm_explain(&map, cinm_address(&map, 0, nullptr), map.t);
     return 0;
 }

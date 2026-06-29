@@ -12,9 +12,9 @@
 
 #define FIXTURE "testdata/golden_set.sample"
 #define RUNDIR  "runs/cim-drum-m1-gate"
-#define N_GOLD  10
-#define N_SLATE 12
-#define N_AP    6
+constexpr int N_GOLD  = 10;
+constexpr int N_SLATE = 12;
+constexpr int N_AP    = 6;
 enum { REVISION_CORRECTIONS = 40 };   /* in-gate corrections that must flip a revision */
 
 /* The six named modes of ANTI_PATTERNS.md, verbatim. In M1 the kernel sees only
@@ -65,7 +65,7 @@ struct verdict {
 static void train(cinm_map *m, const cinm_drum_ingest *in, struct verdict *v) {
     cinm_init(m);
     for (size_t i = 0; i < in->train_len; i++) {
-        size_t c = cinm_address(m, in->train[i].key, NULL);
+        size_t c = cinm_address(m, in->train[i].key, nullptr);
         cinm_update_result r = cinm_update_adaptive(m, c, in->train[i].dphi,
                                                     in->train[i].reward, in->train[i].seq);
         v->updates++;
@@ -78,7 +78,7 @@ static void train(cinm_map *m, const cinm_drum_ingest *in, struct verdict *v) {
 /* Margin of cell(key) against dphi. Every golden/catch key was bootstrapped, so address
  * resolves an existing cell and does not mutate the map. */
 static float margin_at(cinm_map *m, uint32_t key, const float dphi[static NFEAT]) {
-    return cinm_margin(m, cinm_address(m, key, NULL), dphi);
+    return cinm_margin(m, cinm_address(m, key, nullptr), dphi);
 }
 
 static bool dphi_zero(const cinm_event *e) {
@@ -260,7 +260,7 @@ int main(void) {
             float pre = margin_at(&M, e->key, e->dphi);      /* wrong before correction */
             cinm_map w = M;
             for (int n = 0; n < REVISION_CORRECTIONS; n++)
-                cinm_update_adaptive(&w, cinm_address(&w, e->key, NULL), e->dphi, 0.9f, M.t + (uint32_t)n);
+                cinm_update_adaptive(&w, cinm_address(&w, e->key, nullptr), e->dphi, 0.9f, M.t + (uint32_t)n);
             float post = margin_at(&w, e->key, e->dphi);     /* right after */
             v.pass[i] = pre <= 0.0f && post > 0.0f;
             v.rev_flips += v.pass[i]; v.rev_total++;

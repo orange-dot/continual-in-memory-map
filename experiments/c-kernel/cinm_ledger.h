@@ -8,7 +8,6 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include <stdbool.h>
 
 typedef enum {
     CINM_DECISION_COMMIT      = 0,  /* a speculative change was kept */

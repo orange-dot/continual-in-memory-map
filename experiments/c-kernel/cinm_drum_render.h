@@ -10,7 +10,6 @@
 
 #include "cinm.h"          /* NFEAT, clampf, absf */
 #include <stddef.h>
-#include <stdbool.h>
 
 enum { CINM_RENDER_STEPS = 16, CINM_RENDER_VOICES = 4, CINM_RENDER_TPQN = 96 };
 _Static_assert(CINM_RENDER_TPQN % 4 == 0, "TPQN must divide into 16th-note steps");
@@ -30,7 +29,7 @@ typedef struct {
 } cinm_render_loss;
 
 /* Encode the groove into a type-0 SMF in buf; returns bytes written (0 on overflow). Pure:
- * no I/O, so the same phi yields byte-identical output. *loss (if non-NULL) receives the
+ * no I/O, so the same phi yields byte-identical output. *loss (if non-nullptr) receives the
  * lowering record. */
 size_t cinm_drum_render_encode(const float phi[static NFEAT], unsigned char *buf, size_t cap,
                                cinm_render_loss *loss);

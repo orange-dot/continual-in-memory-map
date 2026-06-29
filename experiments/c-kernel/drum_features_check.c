@@ -25,7 +25,7 @@ int main(void) {
     cinm_map m;
     cinm_init(&m);
     for (size_t i = 0; i < a.train_len; i++) {
-        size_t idx = cinm_address(&m, a.train[i].key, NULL);
+        size_t idx = cinm_address(&m, a.train[i].key, nullptr);
         cinm_update(&m, idx, a.train[i].dphi, a.train[i].reward, a.train[i].seq);
     }
     bool sparse = m.count == 3 && m.count < (size_t)MAX_CELLS;

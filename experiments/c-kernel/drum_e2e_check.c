@@ -12,7 +12,7 @@
 #define LEARN "testdata/drum_events.learn"
 
 enum { NCTX_LEARN = 4 };       /* drum_events.learn has 4 contexts (keys 0..3) */
-#define MIN_WINRATE 0.70f      /* held-out floor that marks real learning, not noise */
+constexpr float MIN_WINRATE = 0.70f;      /* held-out floor that marks real learning, not noise */
 
 /* Train a fresh map on the ingest's train set via the adaptive (margin-gated) update,
  * the O-path (doc 17). blind=true folds every context into the shared cell (key 0),
@@ -20,7 +20,7 @@ enum { NCTX_LEARN = 4 };       /* drum_events.learn has 4 contexts (keys 0..3) *
 static void train(cinm_map *m, const cinm_drum_ingest *in, bool blind) {
     cinm_init(m);
     for (size_t i = 0; i < in->train_len; i++) {
-        size_t c = cinm_address(m, blind ? 0u : in->train[i].key, NULL);
+        size_t c = cinm_address(m, blind ? 0u : in->train[i].key, nullptr);
         cinm_update_adaptive(m, c, in->train[i].dphi, in->train[i].reward, in->train[i].seq);
     }
 }
@@ -36,7 +36,7 @@ static float winrate(cinm_map *m, const cinm_drum_ingest *in, bool blind) {
         float n2 = 0.0f;
         for (int k = 0; k < NFEAT; k++) n2 += dphi[k] * dphi[k];
         if (n2 == 0.0f) continue;
-        size_t c = cinm_address(m, blind ? 0u : in->slate[i].key, NULL);
+        size_t c = cinm_address(m, blind ? 0u : in->slate[i].key, nullptr);
         if (cinm_margin(m, c, dphi) > 0.0f) correct++;
         scored++;
     }

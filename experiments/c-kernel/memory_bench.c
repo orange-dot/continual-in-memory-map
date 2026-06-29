@@ -23,7 +23,7 @@ static void fill_map(cinm_map *m) {
     for (int k = 0; k < NFEAT; k++)
         dphi[k] = (float)(k + 1) * 0.01f;
     for (uint32_t i = 0; i < MAX_CELLS; i++) {
-        size_t cell = cinm_address(m, i, NULL);
+        size_t cell = cinm_address(m, i, nullptr);
         cinm_update(m, cell, dphi, 1.0f, i);
         m->t++;
     }
@@ -46,7 +46,7 @@ int main(void) {
     uint64_t t0 = ns_now();
     for (int r = 0; r < REPS; r++)
         for (uint32_t k = 0; k < MAX_CELLS; k++)
-            sinku += (uint32_t)cinm_address(&m, k, NULL);
+            sinku += (uint32_t)cinm_address(&m, k, nullptr);
     uint64_t t1 = ns_now();
 
     for (int r = 0; r < REPS; r++)

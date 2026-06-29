@@ -21,7 +21,7 @@ int main(void) {
     for (uint32_t seq = 0; seq < NSTEPS; seq++) {
         cinm_event ev = { .seq = seq, .type = 0, .key = seq % 4, .reward = 1.0f };
         for (int k = 0; k < NFEAT; k++) ev.dphi[k] = (k == (int)(seq % NFEAT)) ? 0.5f : -0.1f;
-        size_t i = cinm_address(&M, ev.key, NULL);
+        size_t i = cinm_address(&M, ev.key, nullptr);
         cinm_update(&M, i, ev.dphi, ev.reward, seq);
         M.t = seq + 1;
         cinm_log_append(&log, &ev);
@@ -47,7 +47,7 @@ int main(void) {
         .evict_floor = 0.0f, .evict_conf_max = 0.0f, .evict_idle_age = UINT32_MAX,
         .promote_conf = 2.0f, .promote_evidence = UINT32_MAX,   /* evict/freeze nothing */
     };
-    cinm_consolidate(&M, &pol, M.t, NSTEPS);
+    (void)cinm_consolidate(&M, &pol, M.t, NSTEPS);
     cinm_undo_clear(&u);
     cinm_map U3 = M;
     bool refused_epoch = !cinm_undo_to(&u, &log, &U3, target, NSTEPS) && cinm_equal(&U3, &M);

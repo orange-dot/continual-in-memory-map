@@ -10,12 +10,11 @@
 #include "cinm.h"        /* NFEAT (genome width) and clampf only — no kernel call */
 #include <stdint.h>
 #include <stddef.h>
-#include <stdbool.h>
 
 enum { CINM_GROOVE_BINS = 6,                                   /* bins per behavior axis  */
        CINM_GROOVE_NICHES = CINM_GROOVE_BINS * CINM_GROOVE_BINS,
        CINM_GROOVE_QUARANTINE = 64 };                          /* reject ring capacity    */
-#define CINM_GROOVE_NONE 0xFFFFFFFFu                           /* "no parent" / seeded     */
+constexpr uint32_t CINM_GROOVE_NONE = 0xFFFFFFFFu;                           /* "no parent" / seeded     */
 
 _Static_assert(CINM_GROOVE_BINS >= 2, "a behavior axis needs at least two bins");
 
