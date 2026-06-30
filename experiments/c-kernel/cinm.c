@@ -25,6 +25,11 @@ static size_t alloc_cell(cinm_map *m) {
     m->last_touched[i] = m->t;
     m->in_use[i]       = true;
     m->frozen[i]       = false;
+#ifdef CINM_ENABLE_SPLIT
+    m->conflict[i]     = 0;
+    for (int k = 0; k < NFEAT; k++) m->conflict_dir[i][k] = 0.0f;
+    m->split_locked[i] = false;
+#endif
     return i;
 }
 
@@ -154,6 +159,24 @@ cinm_update_result cinm_update_adaptive(cinm_map *m, size_t i, const float dphi[
     };
 }
 
+#ifdef CINM_ENABLE_SPLIT
+cinm_update_result cinm_update_adaptive_split(cinm_map *m, size_t i, const float ctx[static NFEAT],
+                                              const float dphi[static NFEAT], float reward, uint32_t t) {
+    cinm_update_result r = cinm_update_adaptive(m, i, dphi, reward, t);   /* proven path, zero-diff */
+    /* A broad contradiction (the cell scored against the reward) is the split signal — the
+     * mature-only `r.conflict` flag misses born-torn cells (see docs/06). Count it, and EWMA
+     * the context-space dissent direction so the split pass can place a child by address. */
+    if (reward * r.margin_before < 0.0f) {
+        m->conflict[i]++;
+        constexpr float A = 0.25f;                                       /* EWMA weight on the new sample */
+        for (int k = 0; k < NFEAT; k++)
+            m->conflict_dir[i][k] = (1.0f - A) * m->conflict_dir[i][k]
+                                  + A * (ctx[k] - m->proto[i][k]);
+    }
+    return r;
+}
+#endif
+
 void cinm_decay(cinm_map *m, float factor) {
     float f = clampf(factor, 0.0f, 1.0f);
     for (size_t i = 0; i < m->count; i++)
@@ -200,7 +223,8 @@ static float cell_strength(const cinm_map *m, size_t i) {
 
 cinm_consolidate_result cinm_consolidate(cinm_map *m, const cinm_consolidate_policy *p,
                                          uint32_t now, uint32_t new_base_seq) {
-    cinm_consolidate_result res = { .evicted = 0, .promoted = 0, .merged = 0 };
+    cinm_consolidate_result res = { .evicted = 0, .promoted = 0, .merged = 0,
+                                    .split = 0, .split_suppressed = 0 };
 
     /* Pass 0: merge (R3.5, D019). Fold each non-frozen cell into an earlier non-frozen cell
      * whose prototype is within merge_radius2 — schema compression that exact keys cannot do.
@@ -210,8 +234,14 @@ cinm_consolidate_result cinm_consolidate(cinm_map *m, const cinm_consolidate_pol
     if (p->merge_radius2 > 0.0f) {
         for (size_t j = 0; j < m->count; j++) {
             if (!m->in_use[j] || m->frozen[j]) continue;
+#ifdef CINM_ENABLE_SPLIT
+            if (m->split_locked[j]) continue;           /* a split child is merge-exempt (hysteresis) */
+#endif
             for (size_t i = 0; i < j; i++) {
                 if (!m->in_use[i] || m->frozen[i]) continue;
+#ifdef CINM_ENABLE_SPLIT
+                if (m->split_locked[i]) continue;
+#endif
                 if (proto_dist2(m, i, m->proto[j]) > p->merge_radius2) continue;
 
                 float ei = (float)m->evidence[i], ej = (float)m->evidence[j];
@@ -226,12 +256,61 @@ cinm_consolidate_result cinm_consolidate(cinm_map *m, const cinm_consolidate_pol
                 if (m->conf[j] > m->conf[i])                 m->conf[i] = m->conf[j];
                 if (m->born[j] < m->born[i])                 m->born[i] = m->born[j];
                 if (m->last_touched[j] > m->last_touched[i]) m->last_touched[i] = m->last_touched[j];
+#ifdef CINM_ENABLE_SPLIT
+                m->conflict[i] = 0;                          /* a consolidated cell starts tension-free */
+                for (int k = 0; k < NFEAT; k++) m->conflict_dir[i][k] = 0.0f;
+#endif
                 m->in_use[j] = false;
                 res.merged++;
                 break;                          /* j is folded away; on to the next cell */
             }
         }
     }
+
+#ifdef CINM_ENABLE_SPLIT
+    /* Pass 0.5: split (D019, the inverse of merge). A non-frozen cell whose broad-
+     * contradiction rate crossed one third with a consistent context direction is carrying two
+     * address-separable schemas; fork the dissenting sub-population into a fresh child placed
+     * along the dissent direction (data-driven, libm-free — no sqrt). Lossy: child content is
+     * re-learned, not recovered; evidence is apportioned by the dissent count alone. Iterate
+     * only the pre-split range n0 so children are never re-split. Off when split_min_conflict==0. */
+    if (p->split_min_conflict > 0) {
+        size_t n0 = m->count;
+        for (size_t i = 0; i < n0; i++) {
+            if (!m->in_use[i] || m->frozen[i])           continue;
+            if (m->evidence[i] < p->split_min_evidence)  continue;   /* rate not yet trustworthy */
+            if (m->conflict[i] < p->split_min_conflict)  continue;   /* below the absolute floor  */
+            if (3u * m->conflict[i] < m->evidence[i])    continue;   /* contradiction rate < 1/3  */
+            if (m->conf[i] >= p->promote_conf)           continue;   /* never split a freeze-candidate */
+
+            float dir2 = 0.0f;
+            for (int k = 0; k < NFEAT; k++) dir2 += m->conflict_dir[i][k] * m->conflict_dir[i][k];
+            if (dir2 < p->split_dir_floor2) { res.split_suppressed++; continue; }  /* aliased: no split helps */
+
+            size_t j = alloc_cell(m);
+            if (j == MAX_CELLS) { res.split_suppressed++; continue; }              /* map full: honest skip */
+
+            for (int k = 0; k < NFEAT; k++) {
+                m->proto[j][k] = m->proto[i][k] + m->conflict_dir[i][k];  /* child address along the dissent */
+                m->w[j][k]     = 0.0f;                                    /* fresh slate; parent w mispredicts */
+            }
+            m->key[j]   = (uint32_t)j;
+            m->plast[j] = 1.0f;
+            m->conf[j]  = 0.0f;
+            m->evidence[j] = m->conflict[i];                             /* corroboration apportioned (lossy) */
+            m->evidence[i] = m->evidence[i] > m->conflict[i] ? m->evidence[i] - m->conflict[i] : 1u;
+            m->born[j]         = now;
+            m->last_touched[j] = now;
+            m->in_use[j]       = true;
+            m->frozen[j]       = false;
+            m->split_locked[j] = true;                                   /* child is merge-exempt (hysteresis) */
+
+            m->conflict[i] = 0;                                          /* refractory reset on the parent */
+            for (int k = 0; k < NFEAT; k++) m->conflict_dir[i][k] = 0.0f;
+            res.split++;
+        }
+    }
+#endif
 
     /* Pass 1: mark. Freeze the strong (frozen, plasticity floored); evict the
      * weak-and-stale that decay has already emptied. A frozen cell is never evicted. */
@@ -268,6 +347,11 @@ cinm_consolidate_result cinm_consolidate(cinm_map *m, const cinm_consolidate_pol
             m->last_touched[d] = m->last_touched[s];
             m->in_use[d]       = true;
             m->frozen[d]       = m->frozen[s];
+#ifdef CINM_ENABLE_SPLIT
+            m->conflict[d]     = m->conflict[s];
+            for (int k = 0; k < NFEAT; k++) m->conflict_dir[d][k] = m->conflict_dir[s][k];
+            m->split_locked[d] = m->split_locked[s];
+#endif
         }
         d++;
     }
@@ -281,6 +365,11 @@ cinm_consolidate_result cinm_consolidate(cinm_map *m, const cinm_consolidate_pol
         m->last_touched[i] = 0;
         m->in_use[i]       = false;
         m->frozen[i]       = false;
+#ifdef CINM_ENABLE_SPLIT
+        m->conflict[i]     = 0;
+        for (int k = 0; k < NFEAT; k++) m->conflict_dir[i][k] = 0.0f;
+        m->split_locked[i] = false;
+#endif
     }
     m->count = d;
 
@@ -303,6 +392,11 @@ bool cinm_equal(const cinm_map *a, const cinm_map *b) {
         && memcmp(a->born, b->born, sizeof a->born) == 0
         && memcmp(a->last_touched, b->last_touched, sizeof a->last_touched) == 0
         && memcmp(a->in_use, b->in_use, sizeof a->in_use) == 0
+#ifdef CINM_ENABLE_SPLIT
+        && memcmp(a->conflict, b->conflict, sizeof a->conflict) == 0
+        && memcmp(a->conflict_dir, b->conflict_dir, sizeof a->conflict_dir) == 0
+        && memcmp(a->split_locked, b->split_locked, sizeof a->split_locked) == 0
+#endif
         && memcmp(a->frozen, b->frozen, sizeof a->frozen) == 0;
 }
 

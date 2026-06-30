@@ -1,0 +1,88 @@
+---
+from: claude-code
+timestamp: 2026-06-30T17:00:00
+session_summary: "Cell-splitting (D019, the inverse of merge) lands as cinm_consolidate Pass 0.5, opt-in -DCINM_ENABLE_SPLIT. When one NN address is forced to carry two address-separable schemas with opposite preferences, a single cell under-fits (0.505, chance); the split forks the dissenting sub-population into a child and the pair recovers to 0.960 (1.90x). Built two proofs (gate + doc-18 forgetting probe), kept the default build byte-exact, wrote the cim-learnq-split-v1 bundle, folded results into the docs."
+project_root: /home/dev/work-base/workspace/research/continual-in-memory-map
+work_dir: /home/dev/work-base/workspace/research/continual-in-memory-map/experiments/c-kernel
+
+done:
+  - "Kernel: added split state to cinm_map behind #ifdef CINM_ENABLE_SPLIT (conflict[], conflict_dir[][], split_locked[]); unconditional policy fields (split_min_conflict/evidence, split_dir_floor2) and result fields (split, split_suppressed). cinm_ledger.h gained info_c/info_d (merged/split) so the receipt records all four structural counts."
+  - "Kernel: cinm_update_adaptive_split wrapper accumulates the contradiction signal (count + EWMA of ctx-proto) leaving the proven cinm_update_adaptive a ZERO-DIFF. cinm_consolidate Pass 0.5 forks the dissenting sub-population into a child at proto+conflict_dir (libm-free), locks it (split_locked), resets the parent. Merge skips split_locked cells. Pass-2 slide + tail-zero + alloc_cell carry the new fields; cinm_equal compares them. All split code behind the compile gate."
+  - "Gate: split_check.c — 7 assertions (baseline collapse, split recovers, determinism, no oscillation via the lock, frozen-exempt, separability null/aliased-suppressed, bounds+receipt). PASS (exit 0)."
+  - "Probe: split_forget_probe.c — doc-18 forgetting probe (A -> interleave A/B -> consolidate -> revive under A+B), split-OFF vs split-ON. Verdict PROTECTED."
+  - "Makefile: split-check / split-forget-probe build targets (-DCINM_ENABLE_SPLIT), run-split / run-split-forget, .PHONY. clean UNTOUCHED."
+  - "Bundle: experiments/c-kernel/runs/cim-learnq-split-v1/ (config.toml, metrics.json, decisions.jsonl, events.jsonl=N/A, summary.md, raw .out captures). Gitignored."
+  - "Docs: D019 in docs/05-decisions.md (split landed), docs/06-open-questions.md:9 (separability answer), cinm.h:37 invariant (merge AND split move proto), .ai/decisions.log + this handoff."
+
+key_findings:
+  - "Under-fit recovery: one torn cell = 0.505 (chance); split pair = 0.960 after re-learn (1.90x). The inverse-of-merge win is real and measured."
+  - "Rate threshold is EMPIRICAL: symmetric opposite schemas (wtB=-wtA) sit at EXACTLY ~1/2 contradiction (winrate_B = 1 - winrate_A => expected 0.5; measured 0.490). The plan's 1/2 gate sits on that ceiling and never reliably fires. Corrected to 1/3 (3*conflict >= evidence). This is the session's main course-change (negative-result honesty)."
+  - "Separability answers docs/06:9: split when ||conflict_dir||^2 >= split_dir_floor2 (0.065 separable vs 0.005 aliased; floor 0.02). Aliased (same address, opposite reward) is SUPPRESSED, not split — the built-in negative control."
+  - "Forgetting protection: split-ON keeps taste A at 0.96 under continued interference where split-OFF collapses to 0.32 (revival 100 vs never). Forward-looking: immediate retention is EQUAL (0.76) — splitting isolates, it does not restore."
+  - "Anti-oscillation: per-cell split_locked flag (child merge-exempt), NOT radius hysteresis. The no-oscillation assertion is non-vacuous: dist2(parent,child)=0.065 < merge_radius2=0.40, so merge WOULD fold them absent the lock."
+  - "Byte-exact: sizeof(cinm_map) default == committed HEAD (23064==23064), +SPLIT=32536. Full 20/20 default-build gate suite GREEN. Isabelle lane untouched (split is outside the proven surface, like merge)."
+
+decisions:
+  - what: "Cell splitting = cinm_consolidate Pass 0.5 (deferred), opt-in -DCINM_ENABLE_SPLIT + policy-gated by split_min_conflict>0."
+    why: "Inverse of merge; rides the consolidation epoch boundary (D018, no new machinery). Default + scale builds carry neither bytes nor code."
+    alternatives_considered: ["eager write-path split (rejected — splits on transient contradiction, no epoch boundary)"]
+  - what: "Trigger = broad-contradiction RATE >= 1/3 AND ||conflict_dir||^2 >= floor (separable)."
+    why: "1/2 was measured to sit on the structural ceiling for symmetric opposite schemas and never fire; 1/3 robustly catches the torn case and clears a coherent cell's noise floor."
+    alternatives_considered: ["1/2 rate (plan default — empirically never fires)", "reuse the mature-only conflict bool (misses born-torn cells)"]
+  - what: "Anti-oscillation = per-cell split_locked flag; child placed data-driven at proto+conflict_dir."
+    why: "User choice. Radius hysteresis (split_radius2 + doubling) is self-contradictory — placing the child at split_radius2 makes dissenters route back to the parent (child starves)."
+    alternatives_considered: ["split_radius2 > merge_radius2 hysteresis (rejected mid-implementation as oscillation-prone)"]
+
+next_steps:
+  - priority: medium
+    task: "Harden split separation vs ALL in-use cells, not just the parent."
+    context: "Today the child at proto+conflict_dir is separated from its parent only; a child landing near a THIRD cell relies on split_locked to avoid being folded next round. Enforcing separation vs all in-use cells (extra O(count*NFEAT) at split) would make the lock belt-and-suspenders. v2 robustness pass; noted in summary.md caveats and docs/05."
+  - priority: low
+    task: "EMA / drift-tracking prototype (D019 deferred sibling)."
+    context: "proto is birth-fixed (merge + split now move it structurally, but it never tracks drift within a cell's life). Separate deferred item; birth-fixed ships first."
+  - priority: low
+    task: "Replayable NN addressing (D019 deferred). The event log stays exact-key (cinm_event carries key, not a context vector); split neither closes nor worsens this gap."
+
+warnings:
+  - "NEVER `make clean` — its target is `rm -rf runs` (Makefile ~:219-221) and deletes the gitignored evidence bundles (lost once already). Build via specific targets; author bundle dirs manually."
+  - "Behavioral proof, NOT byte-exact, for split-ON: splitting changes kernel state by design. The byte-exact guarantee is for the DEFAULT (split-off) build — regression-verified 20/20 + sizeof unchanged."
+  - "The split harnesses learn via cinm_update_adaptive_split (the adaptive path), which is deliberately never logged/replayed. So events.jsonl is N/A (like the systems-scale runs); decisions.jsonl carries the consolidation receipts."
+  - "Lossy: the child's evidence is apportioned by the dissent count alone and its w is re-learned from zero, NOT recovered. The revival cost (100 events) quantifies it. info_d records the split count but the pre-split state is not reconstructable from the log (D018)."
+  - "Use the modern-c-writer skill discipline for all c-kernel C (per project memory). All new C this session followed it."
+
+key_files:
+  - path: /home/dev/work-base/workspace/research/continual-in-memory-map/experiments/c-kernel/cinm.c
+    role: "kernel. cinm_update_adaptive_split (~:157), cinm_consolidate Pass 0.5 split (~:236), merge split_locked skip (~:212), Pass-2 carries, cinm_equal (~:300). All split code behind #ifdef CINM_ENABLE_SPLIT."
+  - path: /home/dev/work-base/workspace/research/continual-in-memory-map/experiments/c-kernel/cinm.h
+    role: "kernel API. cinm_map split fields (after frozen[], gated), policy/result split fields, cinm_update_adaptive_split prototype, proto invariant (:36)."
+  - path: /home/dev/work-base/workspace/research/continual-in-memory-map/experiments/c-kernel/split_check.c
+    role: "NEW — the 7-assertion split gate. Read first to understand the under-fit fixture and the 1/3-vs-1/2 rate finding."
+  - path: /home/dev/work-base/workspace/research/continual-in-memory-map/experiments/c-kernel/split_forget_probe.c
+    role: "NEW — the doc-18 forgetting probe (measurement, not gated)."
+  - path: /home/dev/work-base/workspace/research/continual-in-memory-map/experiments/c-kernel/runs/cim-learnq-split-v1/summary.md
+    role: "the measured results writeup + decision (ACCEPT). Gitignored; regenerate with make run-split / run-split-forget."
+  - path: /home/dev/.claude/plans/commit-gotov-branch-cim-nn-index-r3b-sunny-blanket.md
+    role: "the approved plan (its radius-hysteresis design was superseded mid-implementation by the split-locked design — see decisions above)."
+
+context_for_next_agent: |
+  This is the CIM (Continual In-Memory Map) C kernel — a small continual
+  preference-learning substrate, pure C23, libm-free, RAM-only (D013), no external
+  libraries. The kernel core (cinm.c/.h) has NO heap; cinm_map is a fixed-array POD
+  and snapshot = struct copy. Only cinm_log/cinm_ledger use heap.
+
+  The systems-scale INDEXING arc is closed (v1->v2->v3 + regime probe): exact keys
+  index to ~O(1), NN does not (backtracking-bound at NFEAT=8) but NN holds
+  count=#schemas so the scan is cheap where it counts. That arc handed off to
+  LEARNING QUALITY — "does the compression actually hold?" — and this session
+  delivered the first piece: cell splitting, the inverse of merge.
+
+  Splitting is opt-in (-DCINM_ENABLE_SPLIT) and the default build stays byte-exact
+  (20/20 gates green, struct size unchanged). The proof is BEHAVIORAL (a split
+  changes state by design) with negative-result honesty: the gate's aliased case is
+  the built-in null (split correctly declines), and the rate threshold was corrected
+  from the plan's 1/2 to 1/3 after measuring that symmetric opposite schemas sit on
+  the 1/2 contradiction ceiling.
+
+  Build/run everything from experiments/c-kernel with `make run-<target>`. NEVER run
+  `make clean` (it is `rm -rf runs`). Use the modern-c-writer skill for kernel C.
+---

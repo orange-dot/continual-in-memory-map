@@ -94,6 +94,11 @@ provenance trace length (which picks shaped a groove)
 ```text
 address-scan / score / update / snapshot-restore / replay timing
 (existing: make run-memory)
+scale sweep to 1M cells, tail percentiles  (make run-scale; run cim-sys-scale-v1)
+exact-key index vs scan + byte-exact gate  (make run-scale-index-bench /
+                                            run-scale-index-check; run cim-sys-scale-v2)
+NN metric index vs scan + byte-exact gate   (make run-scale-nn-index-bench /
+                                            run-scale-nn-index-check; run cim-sys-scale-v3)
 ```
 
 ## The Forgetting Probe (drum-shaped)
@@ -171,3 +176,15 @@ Worth recording, not hiding:
 - HDC groove encoding is weaker than the scalar phi path
 - explanation overhead is too high to keep 100% coverage
 ```
+
+> **"Addressing dominates" — CONFIRMED, then ADDRESSED.** `cim-sys-scale-v1`
+> confirmed it (`crossover_n = 256`: the linear scan dominates scoring from the
+> smallest map). That honest negative result drove Phase 3a: `cim-sys-scale-v2`
+> indexed the exact-key scan (`cinm_index`, byte-exact with the scan), making
+> `cinm_address` ~O(1) and removing the dominance for exact-key addressing. The
+> nearest-neighbour scan is now indexed too (`cinm_nn_index`, a KD-tree,
+> `cim-sys-scale-v3`), but at NFEAT=8 the exact tree is backtracking-bound, so it only
+> *reduces* NN cost (~8.3× at 1M, sub-1× below ~2k cells) instead of removing the
+> dominance the way the hash did for exact keys. The record stays — it was true, was
+> measured, and is now resolved for exact keys and quantified for NN (a measured
+> constant-factor, not a flatten).

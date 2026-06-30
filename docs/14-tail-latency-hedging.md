@@ -28,6 +28,31 @@ where possible. TailSlayer targets a different problem: rare but expensive DRAM
 read stalls caused by refresh collisions. If the hot data fits in L1/L2/L3,
 TailSlayer has little to fix.
 
+**Measured at scale (cim-sys-scale-v1, decision A).** `scale_bench.c` swept the
+real kernel to 1M cells with the doc-style percentile target below. The tail that
+shows up first is **not** a DRAM-refresh tail — it is the linear-scan addressing
+cost itself: at 1M cells `cinm_address` is p50 823 µs / p99 4.3 ms / max 7.4 ms,
+and `cinm_address_nn` p99 13.4 ms. `score_ns_per_cell` stays flat ~4–6 ns. So the
+first latency problem to solve is **algorithmic (index the scan)**, not a memory
+hedge; TailSlayer stays a later, separate question for a large read-mostly bank.
+Numbers in `experiments/c-kernel/runs/cim-sys-scale-v1/`.
+
+**Done for exact-key addressing (cim-sys-scale-v2, Phase 3a).** Indexing the scan
+removed this tail entirely: the `cinm_index` hash answers an exact-key lookup with a
+single probe — ~47 ns at 1M instead of p50 823 µs / p99 4.3 ms — so there is **no
+count-dependent tail left to hedge** on the exact-key path. The index is byte-exact
+with the linear scan (`scale_index_check.c` green), which stays the reference. Two
+tails remain open: (1) `cinm_address_nn` (p99 13.4 ms at 1M) now has an exact metric
+index (`cinm_nn_index`, a static KD-tree, cim-sys-scale-v3), but at NFEAT=8 it is
+backtracking-bound — it replaces the O(count) scan with O(log count)-ish backtracking
+and lowers the **mean** ≈8.3× at 1M (6.2 ms → 0.74 ms), a constant factor rather than
+the ~O(1) tail-elimination the exact-key hash gave. So the NN path's extreme linear
+tail is gone but a smaller variable cost remains (its own percentiles are not
+separately measured here — the bench reports means); an approximate index would shrink
+it further but break byte-exactness. (2) The DRAM-refresh tail TailSlayer targets is
+still a later question. Numbers in `experiments/c-kernel/runs/cim-sys-scale-v2/` and
+`.../cim-sys-scale-v3/`.
+
 The useful role is therefore a future optional experiment:
 
 ```text

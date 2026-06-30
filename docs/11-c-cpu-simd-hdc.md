@@ -23,6 +23,47 @@ the first kernels so the compiler and later hand-vectorized code can exploit it.
 
 ## Local Hardware Summary
 
+> **Two machines, two roles (added 2026-06-29).** The Lenovo P16v summarized below
+> ("Machine:" and the CPU/cache/RAM summaries) is the **development workstation**.
+> Every benchmark number in these docs — `cim-sys-scale-v1` and the Faza 3a index
+> work — comes from a separate **measurement / execution host**, the i7-4600U
+> documented immediately below, never from the workstation. Any cache-regime or
+> latency figure in these docs is the measurement host's.
+
+### Current measurement host (2026-06-29)
+
+The host that actually executes the C-kernel benchmarks in this lab —
+`cim-sys-scale-v1` and the Faza 3a index work — is **not** the P16v workstation.
+Measured directly on it (`lscpu`, `/sys/.../cache`, `/proc/meminfo`; `cc`/`gcc`
+16.1.1):
+
+```text
+CPU:    Intel Core i7-4600U (Haswell; family 6, model 69, stepping 1)
+        2 cores / 4 threads (HT); 2.10 GHz base, 3.30 GHz turbo, 0.80 GHz min
+        bare-metal (systemd-detect-virt: none); 1 NUMA node
+Cache:  L1d 32 KiB/core, L1i 32 KiB/core, L2 256 KiB/core, L3 4 MiB shared; 64 B line
+ISA:    SSE..SSE4.2, AVX, AVX2, FMA, F16C, BMI1, BMI2, POPCNT, AES, PCLMULQDQ, MOVBE, RDRAND
+        NO AVX-512, NO AVX-VNNI, NO VAES, NO VPCLMULQDQ
+RAM:    7.6 GiB total (MemTotal 8,014,140 kB); swap 7.6 GiB
+        (DIMM type / MT-s / part number unavailable — dmidecode needs root here)
+```
+
+Consequences for these docs:
+
+- **This host is behind every benchmark number here.** It is the same i7-4600U
+  recorded in `runs/cim-sys-scale-v1/config.toml`, so v1 and the Faza 3a numbers
+  (`cinm_address` ~374 µs vs index ~33 ns at 1M) are self-consistent. The earlier
+  provenance mismatch was the workstation summary, not the data.
+- **Memory is 8 GiB, not 64 GiB.** The 1M-cell map (~90 MB) still fits, so the scale
+  sweep is valid — but the "64 GiB headroom for large maps / archives / logs" framing
+  is the workstation's, not where the experiments run.
+- **ISA baseline is AVX2 + FMA only** — no AVX-512, and (unlike the workstation) no
+  AVX-VNNI / VAES / VPCLMULQDQ. A VNNI quantized path cannot be validated on this
+  host; the scalar + auto-vectorized AVX2 baseline (C design rules #1/#2) is all it
+  runs.
+- **Cell regimes at the 90 B cell:** L1d ~364, L2 ~2913, L3 ~46603 cells, then DRAM —
+  identical to `cim-sys-scale-v1`.
+
 Machine:
 
 ```text
@@ -88,6 +129,30 @@ VPCLMULQDQ
 There is no AVX-512 in the reported flags. The right baseline is therefore
 ordinary scalar C, compiler auto-vectorization, and optional AVX2/VNNI-specific
 paths later.
+
+> **Measured (cim-sys-scale-v1, decision A; rule #8 below).** `vec-report-scale`
+> on `-O3 -march=native`: the one float reduction on the hot path — the
+> `cinm_score` dot loop (`cinm.c:84`) — is **already auto-vectorized** (32-byte
+> vectors, unroll 8). The addressing scans (`cinm.c:32`, `:61`) do not vectorize
+> (early-exit / branchy control flow) and are memory-bound regardless. The
+> `-O2` / `-O3 -march=native` / `-ffast-math` sweep confirms it: `-ffast-math`
+> ~halves the float paths (NN, score, merge) by reassociating, but leaves
+> `cinm_address` flat. **Conclusion: hand-written SIMD is not justified now** —
+> the compiler already covers the only arithmetic-bound loop; the scaling lever
+> is an index over the scan, not vectorization. Recorded as a measured negative
+> result (doc 18). See `experiments/c-kernel/runs/cim-sys-scale-v1/`.
+
+> **Lever realized (cim-sys-scale-v2, Phase 3a).** The index — not SIMD — was
+> built: `cinm_index.c` (an open-addressing hash) added *alongside* the untouched
+> linear scan, making `cinm_address` ~O(1) (~47 ns vs 443 µs scanned at 1M) and
+> byte-exact with the scan (`scale_index_check.c` green; the scalar scan stays the
+> reference, rule #1). Hand SIMD stayed unbuilt, as the negative result predicted.
+> The nearest-neighbour scan got the same treatment in Phase 3b (`cinm_nn_index`, a
+> static KD-tree, `cim-sys-scale-v3`) — also byte-exact, also libm-free — but the
+> lever does *not* transfer: at NFEAT=8 an exact metric tree is backtracking-bound, so
+> it only reduces NN cost ~8.3× at 1M (sub-1× below ~2k cells), not the ~O(1) the
+> exact-key hash gave. The exact-key/NN asymmetry is now measured. See
+> `experiments/c-kernel/runs/cim-sys-scale-v2/` and `.../cim-sys-scale-v3/`.
 
 ## Why This Matters For CINM
 

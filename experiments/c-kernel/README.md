@@ -82,6 +82,37 @@ disk tier (decision D013).
   and in-RAM replay.
 - `hdc_bits.c` - 1024-bit HDC XOR + popcount baseline.
 - `bench_crossbar.c` - preserved sparse-vs-dense microbenchmark.
+- `cinm_index.h` / `cinm_index.c` - Phase 3a exact-key acceleration index: an
+  open-addressing hash mapping key -> cell, built over a map's live cells. Auxiliary
+  (heap, like `cinm_log`/`cinm_ledger`); the kernel `cinm.c` is untouched and the
+  linear scan stays the byte-exact reference. Find is ~O(1); lowest index wins on a
+  duplicate key, matching `cinm_address` (`cinm.c:33`).
+- `scale_index_check.c` - gate run-scale-index-check: proves the index selects the
+  identical cell as the scan (hit-equivalence, absent-key miss, duplicate-key
+  tie-break, rebuild-after-evict), at `MAX_CELLS` 256 and 1M.
+- `scale_index_bench.c` - run-scale-index-bench: index `find` vs scan `cinm_address`
+  across the doc-12 regimes to 1M; reports speedup and the O(count) build cost
+  separately. Writes nothing; see the hand-authored `runs/cim-sys-scale-v2/` bundle.
+- `cinm_nn_index.h` / `cinm_nn_index.c` - Phase 3b NN (prototype) acceleration index: a
+  static KD-tree over live cells' `proto[NFEAT]`, built once. Auxiliary (heap), kernel
+  untouched, byte-exact reference. Find reproduces `cinm_address_nn`'s cell — minimum
+  squared-L2 within radius2, HIGHEST index on a distance tie (`cinm.c:64`, the opposite
+  of exact-key's first-match). Libm-free; the per-axis splitting-plane prune is a
+  provably safe float lower bound (no epsilon slack needed).
+- `scale_nn_index_check.c` - gate run-scale-nn-index-check: proves the KD-tree selects
+  the identical cell as the scan (hit-equivalence, beyond-radius miss, distance-tie
+  highest index, exact-radius boundary, rebuild-after-evict), at `MAX_CELLS` 256 and 100k.
+- `scale_nn_index_bench.c` - run-scale-nn-index-bench: KD `find` vs scan `cinm_address_nn`
+  across the doc-12 regimes to 1M; reports speedup and the O(count·log count) build cost
+  separately. Writes nothing; see the hand-authored `runs/cim-sys-scale-v3/` bundle.
+- `split_check.c` - gate run-split (opt-in `-DCINM_ENABLE_SPLIT`): proves D019 cell-splitting,
+  the inverse of merge. When one NN address carries two address-separable schemas with
+  opposite preferences a single cell under-fits; the deferred split pass (Pass 0.5) forks the
+  dissenting sub-population into a child and the pair recovers win-rate. 7 assertions incl. the
+  aliased *negative control* (split correctly declines) and the `split_locked` anti-oscillation.
+- `split_forget_probe.c` - run-split-forget (opt-in `-DCINM_ENABLE_SPLIT`): the doc-18
+  forgetting probe (learn A → interleave B → revive under A+B), split OFF vs ON. A measurement,
+  not a gate. See the hand-authored `runs/cim-learnq-split-v1/` bundle.
 
 ## Build And Run
 
@@ -96,6 +127,8 @@ make run-log-invariants # event-log replay invariant guards
 make run-ledger   # decision-ledger append-only receipts (D018)
 make run-consolidate # lossy consolidation: evict/freeze, revival cost, lossy vs within-epoch (D018)
 make run-nn-address  # NN/prototype addressing + R3.5 merge: clustering, novelty, faithful merge (D019)
+make run-split        # D019 cell-splitting (inverse of merge): under-fit recovery, separability null (-DCINM_ENABLE_SPLIT)
+make run-split-forget # doc-18 forgetting probe: split OFF vs ON protects an old taste (-DCINM_ENABLE_SPLIT)
 make run-undo     # bounded undo: within-horizon exact, beyond/across-epoch refused (D018)
 make run-taste-loop  # drum taste loop: context-addressing beats blind baseline (vertical O)
 make run-self-adapt  # Godel-Darwin: self-tunes decay on drift, held-out gate (vertical P)
@@ -110,7 +143,47 @@ make run-hdc      # bit-HDC XOR + popcount agreement
 make native       # -O3 -march=native behavior check
 make vec-report   # compiler vectorization report for cinm.c
 make run-bench    # sparse vs dense crossbar microbenchmark
+make run-scale       # A: scaling sweep of the real kernel to 1M cells + tail percentiles
+make run-scale-native # ... at -O3 -march=native
+make run-scale-fast   # ... at -O3 -march=native -ffast-math (doc-11 rule #8 sweep)
+make vec-report-scale # auto-vectorization report for the scale build
+make run-scale-index-check # Phase 3a: exact-key index == scan, byte-exact (incl. dup-key tie-break)
+make run-scale-index-bench # Phase 3a: index find vs scan address to 1M (the speedup)
+make run-scale-nn-index-check # Phase 3b: NN KD-tree == scan, byte-exact (incl. distance-tie highest index)
+make run-scale-nn-index-bench # Phase 3b: KD find vs scan cinm_address_nn to 1M (the modest speedup)
 ```
+
+Expected results:
+
+- `run-scale-index-check` prints four `PASS` lines and exits 0 — the `cinm_index`
+  hash selects the identical cell as `cinm_address` (lowest index on a duplicate
+  key, `cinm.c:33`), so `cinm_equal` stays byte-exact. The linear scan in `cinm.c`
+  is untouched; the index is a separate module (`cinm_index.c`).
+- `run-scale-index-bench` shows the address curve flattening: linear scan
+  ~130 ns → ~443 µs from 256 → 1M cells, vs index `find` ~6 → ~47 ns (≈ 9 000× at
+  1M); `index_build_ns_per_cell` is the O(count) build cost, reported separately.
+  See `runs/cim-sys-scale-v2/`.
+- `run-scale-nn-index-check` prints five `PASS` lines and exits 0 — the `cinm_nn_index`
+  KD-tree selects the identical cell as `cinm_address_nn`, the distance-tie (highest
+  index) and the inclusive radius boundary included, so `cinm_equal` stays byte-exact.
+- `run-scale-nn-index-bench` shows a *modest, growing* speedup, not a flatten: NN scan
+  ~1.2 µs → ~6.2 ms from 256 → 1M, vs KD `find` ~2.9 µs → ~0.74 ms (sub-1× below ~2k
+  cells, ~8.3× at 1M). At NFEAT=8 an exact metric tree is backtracking-bound — the
+  exact-key hash's ~O(1) does not transfer. `nn_index_build_ns_per_cell` (the
+  O(count·log count) build, ~9× the hash's) is reported separately. See
+  `runs/cim-sys-scale-v3/`.
+- `run-split` prints the conflict-rate + `dir2` diagnostics and seven `PASS` lines, exits 0.
+  A single torn cell sits at chance (`wr_off=0.505`); splitting recovers it to `0.960`
+  (1.90×). The aliased fixture is *suppressed* (`split_suppressed=1`, stays 0.480) — splitting
+  declines when the sub-populations share an address. Opt-in `-DCINM_ENABLE_SPLIT`; the default
+  build is byte-exact (`sizeof(cinm_map)` unchanged, the full default gate suite green).
+- `run-split-forget` prints the OFF-vs-ON table: taste A retained `0.322` (split off, forgotten)
+  vs `0.960` (split on) under continued interference, revival `1200` (never) vs `100` events.
+  *Immediate* retention is equal (`0.760`) — splitting isolates the interferer, it does not
+  restore. See `runs/cim-learnq-split-v1/`.
+- **The 1/3 rate threshold is empirical.** Symmetric opposite schemas (`wtB = −wtA`) sit at
+  ~1/2 contradiction (`winrate_B = 1 − winrate_A`), so a 1/2 gate sits on the structural ceiling
+  and never reliably fires (measured 0.490) — `cinm.c` uses `3·conflict ≥ evidence`.
 
 All targets build with:
 
@@ -284,6 +357,30 @@ rejection, duplicate sequence rejection, unsupported type rejection, and
 capacity overflow rejection.
 
 `make run-hdc` should report PASS.
+
+`make run-scale` (decision A — systems/scale) sweeps the real kernel from 256 to
+1,048,576 cells on a heap-allocated map (`-DCINM_MAX_CELLS`), emitting one
+machine-parseable line per size plus a crossover line. It is a measurement, not a
+PASS/FAIL gate. The headline on the reference host (i7-4600U) is:
+
+```text
+crossover_n=256          # retrieval dominates from the smallest map onward
+n=1048576 address_mean_ns=403514 address_p50=823391 address_p99=4269369 ...
+          nn_mean_ns=9287754 ... score_ns_per_cell=5.794
+```
+
+Findings (full bundle in `runs/cim-sys-scale-v1/`, gitignored):
+
+- **Addressing is the scaling wall.** `cinm_address` is O(count) linear scan,
+  memory-bound; `cinm_address_nn` ~8× worse (O(count·NFEAT)). `score_ns_per_cell`
+  stays flat ~4–6 ns across all cache regimes — arithmetic is never the bottleneck.
+- **`crossover_n=256`** confirms the doc-18 pre-registered watch "addressing
+  dominates every other design choice."
+- **Compiler flags don't move the bottleneck:** `-ffast-math` ~halves the float
+  paths (NN/score/merge) but `cinm_address` is flat across `-O2`/native/fast.
+- **Auto-vec already covers the one float reduction** (`cinm_score` dot loop,
+  `cinm.c:84`); hand SIMD is not justified. The justified lever is an index over
+  the scan (the conditional NN-index follow-on).
 
 ## Core Cell
 

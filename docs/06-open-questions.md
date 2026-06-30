@@ -6,7 +6,14 @@
 - Should cells store vectors, low-rank adapters, counters, or small rules?
 - How should confidence be updated under repeated weak evidence?
 - How should contradictory evidence be represented?
-- When does a conflict split a cell instead of lowering confidence?
+- ~~When does a conflict split a cell instead of lowering confidence?~~
+  **Resolved (D019, `cim-learnq-split-v1`): when the dissent has a consistent context
+  direction.** A cell splits when its broad-contradiction rate crosses 1/3 *and*
+  `‖conflict_dir‖² ≥ split_dir_floor2` (the EWMA of `ctx − proto` on contradiction is
+  address-separable). If the rate is high but the direction collapses to ~0 — the two
+  sub-populations are *aliased* (same address, opposite reward) — the split is
+  **suppressed** and the cell falls back to lowering confidence / route-by-hidden-context
+  (`01-theory.md:179`). Address-splitting separates only what differs by address.
 - What should plasticity mean after consolidation?
 - How much eligibility trace is useful before it becomes hidden sequence memory?
 
@@ -69,7 +76,17 @@
 - Is CPU cache behavior more important than arithmetic throughput?
 - Which operations, if any, benefit from CUDA?
 - What is the cost of explanation?
-- How large can the map grow before retrieval dominates?
+- How large can the map grow before retrieval dominates? **(Measured, decision A.)**
+  With the linear scan, retrieval dominates from the *smallest* map (`crossover_n =
+  256`; `cim-sys-scale-v1`) — scoring is flat ~4–6 ns/cell, addressing is the wall.
+  Phase 3a then indexed the exact-key scan: `cinm_address` becomes ~O(1) (~47 ns at
+  1M vs 443 µs scanned), byte-exact, so an *exact-key* map now grows to ≥ 1M cells
+  without retrieval dominating (`cim-sys-scale-v2`). The nearest-neighbour path
+  (`cinm_address_nn`) is now indexed too (`cinm_nn_index`, a static KD-tree,
+  `cim-sys-scale-v3`) and byte-exact, but only modestly: at NFEAT=8 the exact tree is
+  backtracking-bound, so it reduces NN cost ~8.3× at 1M (and is *slower* than the scan
+  below ~2k cells) rather than flattening it like the exact-key hash. The
+  exact-key/NN asymmetry is now measured, not assumed.
 - What snapshot format balances speed and inspectability? (In-RAM today a
   snapshot is a whole-map copy; an on-disk format is deferred — D013.)
 

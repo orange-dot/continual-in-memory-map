@@ -3,6 +3,14 @@ CFLAGS ?= -O2 -Wall -Wextra -Wpedantic -std=c23
 NATIVE_CFLAGS ?= -O3 -march=native -Wall -Wextra -Wpedantic -std=c23
 VEC_CFLAGS ?= -O3 -march=native -fopt-info-vec-optimized -fopt-info-vec-missed -Wall -Wextra -Wpedantic -std=c23
 
+# Scale benchmark (A: systems/scale). Capacity is a build-time parameter; the map
+# is heap-allocated by the bench so a large MAX_CELLS does not hit the stack.
+# Three profiles answer doc-11 rule #8 (-O2 vs -O3 native vs -ffast-math).
+SCALE_MAX           ?= 1048576
+SCALE_CFLAGS        ?= -O2 -Wall -Wextra -Wpedantic -std=c23 -DCINM_MAX_CELLS=$(SCALE_MAX)
+SCALE_NATIVE_CFLAGS ?= -O3 -march=native -Wall -Wextra -Wpedantic -std=c23 -DCINM_MAX_CELLS=$(SCALE_MAX)
+SCALE_FAST_CFLAGS   ?= -O3 -march=native -ffast-math -Wall -Wextra -Wpedantic -std=c23 -DCINM_MAX_CELLS=$(SCALE_MAX)
+
 preference: cinm.c task_preference.c cinm.h
 	$(CC) $(CFLAGS) -o preference cinm.c task_preference.c
 
@@ -38,6 +46,24 @@ consolidate: consolidate_check.c cinm.c cinm_log.c cinm_ledger.c cinm.h cinm_log
 
 nn-address: nn_address_check.c cinm.c cinm_ledger.c cinm.h cinm_ledger.h
 	$(CC) $(CFLAGS) -o nn-address nn_address_check.c cinm.c cinm_ledger.c
+
+# Faza 3a: exact-key index equivalence gate. Links the untouched kernel (cinm.c) and the
+# auxiliary index (cinm_index.c); asserts the index selects the identical cell as the scan.
+scale-index-check: scale_index_check.c cinm.c cinm_index.c cinm.h cinm_index.h
+	$(CC) $(CFLAGS) -o scale-index-check scale_index_check.c cinm.c cinm_index.c
+
+# Faza 3b: NN (prototype) index equivalence gate. Same shape as scale-index-check but for the
+# KD-tree (cinm_nn_index.c); asserts the index reproduces cinm_address_nn's cell, ties included.
+scale-nn-index-check: scale_nn_index_check.c cinm.c cinm_nn_index.c cinm.h cinm_nn_index.h
+	$(CC) $(CFLAGS) -o scale-nn-index-check scale_nn_index_check.c cinm.c cinm_nn_index.c
+
+# D019 cell-splitting (inverse of merge). Opt-in behind -DCINM_ENABLE_SPLIT; the default
+# build carries neither the bytes nor the code, so every other gate stays byte-exact.
+split-check: split_check.c cinm.c cinm_ledger.c cinm.h cinm_ledger.h
+	$(CC) $(CFLAGS) -DCINM_ENABLE_SPLIT -o split-check split_check.c cinm.c cinm_ledger.c
+
+split-forget-probe: split_forget_probe.c cinm.c cinm_ledger.c cinm.h cinm_ledger.h
+	$(CC) $(CFLAGS) -DCINM_ENABLE_SPLIT -o split-forget-probe split_forget_probe.c cinm.c cinm_ledger.c
 
 undo: undo_check.c cinm.c cinm_log.c cinm_undo.c cinm.h cinm_log.h cinm_undo.h
 	$(CC) $(CFLAGS) -o undo undo_check.c cinm.c cinm_log.c cinm_undo.c
@@ -75,6 +101,34 @@ preference-native: cinm.c task_preference.c cinm.h
 vec-report:
 	$(CC) $(VEC_CFLAGS) -c cinm.c -o /tmp/cinm-vec-report.o
 
+scale: scale_bench.c cinm.c cinm.h
+	$(CC) $(SCALE_CFLAGS) -o scale scale_bench.c cinm.c
+
+# Faza 3a payoff: index find vs scan address across the sweep (links the untouched kernel
+# + the auxiliary index). Large capacity like the scale bench so the map is heap-allocated.
+scale-index-bench: scale_index_bench.c cinm.c cinm_index.c cinm.h cinm_index.h
+	$(CC) $(SCALE_CFLAGS) -o scale-index-bench scale_index_bench.c cinm.c cinm_index.c
+
+# Faza 3b payoff: KD-tree NN find vs scan cinm_address_nn across the sweep. Same large
+# capacity so the map is heap-allocated; links the untouched kernel + the auxiliary index.
+scale-nn-index-bench: scale_nn_index_bench.c cinm.c cinm_nn_index.c cinm.h cinm_nn_index.h
+	$(CC) $(SCALE_CFLAGS) -o scale-nn-index-bench scale_nn_index_bench.c cinm.c cinm_nn_index.c
+
+# Faza 3b regime probe: does the O(count) NN scan even matter in the regime NN addressing
+# produces? Bounded-radius pruning + clustered-stream count saturation. Closes the question.
+nn-regime-probe: nn_regime_probe.c cinm.c cinm_nn_index.c cinm.h cinm_nn_index.h
+	$(CC) $(SCALE_CFLAGS) -o nn-regime-probe nn_regime_probe.c cinm.c cinm_nn_index.c
+
+scale-native: scale_bench.c cinm.c cinm.h
+	$(CC) $(SCALE_NATIVE_CFLAGS) -o scale-native scale_bench.c cinm.c
+
+scale-fast: scale_bench.c cinm.c cinm.h
+	$(CC) $(SCALE_FAST_CFLAGS) -o scale-fast scale_bench.c cinm.c
+
+# Auto-vectorization report for the scale build (cinm.c hot loops at -march=native).
+vec-report-scale:
+	$(CC) $(SCALE_NATIVE_CFLAGS) -fopt-info-vec-optimized -fopt-info-vec-missed -c cinm.c -o /tmp/cinm-scale-vec.o
+
 run: preference
 	./preference
 
@@ -111,6 +165,20 @@ run-consolidate: consolidate
 run-nn-address: nn-address
 	./nn-address
 
+run-scale-index-check: scale-index-check
+	./scale-index-check
+
+run-scale-nn-index-check: scale-nn-index-check
+	./scale-nn-index-check
+
+run-split: split-check
+	mkdir -p runs/cim-learnq-split-v1
+	./split-check
+
+run-split-forget: split-forget-probe
+	mkdir -p runs/cim-learnq-split-v1
+	./split-forget-probe
+
 run-undo: undo
 	./undo
 
@@ -146,8 +214,26 @@ run-hdc: hdc-bits
 native: preference-native
 	./preference-native
 
+run-scale: scale
+	./scale
+
+run-scale-index-bench: scale-index-bench
+	./scale-index-bench
+
+run-scale-nn-index-bench: scale-nn-index-bench
+	./scale-nn-index-bench
+
+run-nn-regime-probe: nn-regime-probe
+	./nn-regime-probe
+
+run-scale-native: scale-native
+	./scale-native
+
+run-scale-fast: scale-fast
+	./scale-fast
+
 clean:
-	rm -f preference bench cmp learning txn core-check replay log-invariants memory ledger consolidate nn-address undo taste selfadapt drum-adapter drum-features drum-e2e drum-gate groove-archive drum-render hdc-bits preference-native *.o
+	rm -f preference bench cmp learning txn core-check replay log-invariants memory ledger consolidate nn-address scale-index-check scale-index-bench scale-nn-index-check scale-nn-index-bench nn-regime-probe undo taste selfadapt drum-adapter drum-features drum-e2e drum-gate groove-archive drum-render hdc-bits preference-native scale scale-native scale-fast *.o
 	rm -rf runs
 
-.PHONY: run run-bench run-cmp run-learning run-txn run-core-check run-replay run-log-invariants run-memory run-ledger run-consolidate run-nn-address run-undo run-taste-loop run-self-adapt run-drum-adapter run-drum-features run-drum-e2e run-drum-gate run-groove-archive run-drum-render run-hdc native vec-report clean
+.PHONY: run run-bench run-cmp run-learning run-txn run-core-check run-replay run-log-invariants run-memory run-ledger run-consolidate run-nn-address run-scale-index-check run-scale-nn-index-check run-scale-index-bench run-scale-nn-index-bench run-nn-regime-probe run-split run-split-forget run-undo run-taste-loop run-self-adapt run-drum-adapter run-drum-features run-drum-e2e run-drum-gate run-groove-archive run-drum-render run-hdc native vec-report vec-report-scale run-scale run-scale-native run-scale-fast clean

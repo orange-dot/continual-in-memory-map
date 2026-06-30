@@ -21,6 +21,16 @@ experiments/c-kernel/selfadapt
 experiments/c-kernel/taste
 experiments/c-kernel/txn
 experiments/c-kernel/undo
+experiments/c-kernel/scale
+experiments/c-kernel/scale-native
+experiments/c-kernel/scale-fast
+experiments/c-kernel/scale-index-check
+experiments/c-kernel/scale-index-bench
+experiments/c-kernel/scale-nn-index-check
+experiments/c-kernel/scale-nn-index-bench
+experiments/c-kernel/nn-regime-probe
+experiments/c-kernel/split-check
+experiments/c-kernel/split-forget-probe
 experiments/c-kernel/*.o
 experiments/c-kernel/runs/
 .isabelle-user/
