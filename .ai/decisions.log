@@ -1,0 +1,35 @@
+# Decision Log
+
+> Append-only. Each agent adds entries, none deletes.
+> Format: YAML frontmatter + brief rationale.
+
+<!-- New entries are prepended below this line -->
+
+---
+date: 2026-06-30
+agent: claude-code
+session: "Cell-splitting — learning quality (D019, cim-learnq-split-v1)"
+decisions:
+  - what: "cell splitting lands as cinm_consolidate Pass 0.5, opt-in -DCINM_ENABLE_SPLIT"
+    why: "inverse of merge; one address carrying two opposite schemas under-fits (0.505->0.960 split)"
+  - what: "trigger = broad-contradiction RATE >= 1/3 (not 1/2) + ||conflict_dir||^2 >= floor"
+    why: "symmetric opposite schemas sit at ~1/2 contradiction (winrate_B=1-winrate_A); a 1/2 gate never fires — empirical correction over the plan"
+  - what: "anti-oscillation = per-cell split_locked flag (child merge-exempt), NOT radius hysteresis"
+    why: "user choice; data-driven child placement (proto+conflict_dir) avoids the split_radius2 oscillation"
+  - what: "aliased dissent (||conflict_dir||^2 < floor) is suppressed, not split"
+    why: "answers docs/06:9; address-splitting cannot separate same-address opposite-reward populations"
+  - what: "default + scale builds stay byte-exact (sizeof unchanged, 20/20 gates green); behavioral proof for split-on"
+    why: "all split state behind the compile gate; splitting changes state by design so it cannot be byte-exact"
+---
+date: 2026-06-29
+agent: claude-code
+session: "Decision A — systems/scale (D011)"
+decisions:
+  - what: "MAX_CELLS is a compile-time -D parameter (default 256)"
+    why: "keeps POD/fixed-array kernel intact; no-op for existing gates"
+  - what: "scale benchmark heap-allocates one cinm_map, kernel untouched"
+    why: "~90MB at 1M cells can't go on the stack; API already pointer-based"
+  - what: "Phase 3a (index the scan) justified; Phase 3b (hand SIMD) NOT"
+    why: "measured crossover_n=256 (addressing dominates); cinm_score already auto-vectorized"
+  - what: "if SIMD later: default scalar stays byte-exact, SIMD opt-in behind -DCINM_SIMD"
+    why: "preserve byte-exact gates + Isabelle lane (doc 11 rule #1/#7)"

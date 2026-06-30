@@ -57,6 +57,14 @@ scale-index-check: scale_index_check.c cinm.c cinm_index.c cinm.h cinm_index.h
 scale-nn-index-check: scale_nn_index_check.c cinm.c cinm_nn_index.c cinm.h cinm_nn_index.h
 	$(CC) $(CFLAGS) -o scale-nn-index-check scale_nn_index_check.c cinm.c cinm_nn_index.c
 
+# D019 cell-splitting (inverse of merge). Opt-in behind -DCINM_ENABLE_SPLIT; the default
+# build carries neither the bytes nor the code, so every other gate stays byte-exact.
+split-check: split_check.c cinm.c cinm_ledger.c cinm.h cinm_ledger.h
+	$(CC) $(CFLAGS) -DCINM_ENABLE_SPLIT -o split-check split_check.c cinm.c cinm_ledger.c
+
+split-forget-probe: split_forget_probe.c cinm.c cinm_ledger.c cinm.h cinm_ledger.h
+	$(CC) $(CFLAGS) -DCINM_ENABLE_SPLIT -o split-forget-probe split_forget_probe.c cinm.c cinm_ledger.c
+
 undo: undo_check.c cinm.c cinm_log.c cinm_undo.c cinm.h cinm_log.h cinm_undo.h
 	$(CC) $(CFLAGS) -o undo undo_check.c cinm.c cinm_log.c cinm_undo.c
 
@@ -163,6 +171,14 @@ run-scale-index-check: scale-index-check
 run-scale-nn-index-check: scale-nn-index-check
 	./scale-nn-index-check
 
+run-split: split-check
+	mkdir -p runs/cim-learnq-split-v1
+	./split-check
+
+run-split-forget: split-forget-probe
+	mkdir -p runs/cim-learnq-split-v1
+	./split-forget-probe
+
 run-undo: undo
 	./undo
 
@@ -220,4 +236,4 @@ clean:
 	rm -f preference bench cmp learning txn core-check replay log-invariants memory ledger consolidate nn-address scale-index-check scale-index-bench scale-nn-index-check scale-nn-index-bench nn-regime-probe undo taste selfadapt drum-adapter drum-features drum-e2e drum-gate groove-archive drum-render hdc-bits preference-native scale scale-native scale-fast *.o
 	rm -rf runs
 
-.PHONY: run run-bench run-cmp run-learning run-txn run-core-check run-replay run-log-invariants run-memory run-ledger run-consolidate run-nn-address run-scale-index-check run-scale-nn-index-check run-scale-index-bench run-scale-nn-index-bench run-nn-regime-probe run-undo run-taste-loop run-self-adapt run-drum-adapter run-drum-features run-drum-e2e run-drum-gate run-groove-archive run-drum-render run-hdc native vec-report vec-report-scale run-scale run-scale-native run-scale-fast clean
+.PHONY: run run-bench run-cmp run-learning run-txn run-core-check run-replay run-log-invariants run-memory run-ledger run-consolidate run-nn-address run-scale-index-check run-scale-nn-index-check run-scale-index-bench run-scale-nn-index-bench run-nn-regime-probe run-split run-split-forget run-undo run-taste-loop run-self-adapt run-drum-adapter run-drum-features run-drum-e2e run-drum-gate run-groove-archive run-drum-render run-hdc native vec-report vec-report-scale run-scale run-scale-native run-scale-fast clean

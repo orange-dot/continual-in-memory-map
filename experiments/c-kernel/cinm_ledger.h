@@ -15,9 +15,11 @@ typedef enum {
     CINM_DECISION_CONSOLIDATE = 2,  /* a lossy consolidation advanced the epoch */
 } cinm_decision_kind;
 
-/* One audit receipt. info_a / info_b are kind-specific:
- *   CONSOLIDATE       info_a = cells evicted, info_b = cells frozen (promoted)
- *   COMMIT / ROLLBACK info_a = candidate id,  info_b = 0
+/* One audit receipt. info_a..info_d are kind-specific:
+ *   CONSOLIDATE       info_a = evicted, info_b = frozen (promoted), info_c = merged, info_d = split
+ *   COMMIT / ROLLBACK info_a = candidate id, info_b/info_c/info_d = 0
+ * All four structural counts are recorded so the receipt honestly accounts for every
+ * lossy operation a consolidation performed (merge and split were previously dropped).
  * base_seq is the epoch base after the decision (consolidation moves it). */
 typedef struct {
     uint32_t t;          /* logical clock at the decision */
@@ -25,6 +27,8 @@ typedef struct {
     uint32_t kind;       /* cinm_decision_kind */
     uint32_t info_a;
     uint32_t info_b;
+    uint32_t info_c;
+    uint32_t info_d;
     uint32_t base_seq;
 } cinm_decision;
 

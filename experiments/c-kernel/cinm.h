@@ -34,7 +34,8 @@ typedef struct {
     /* hot — address / score / update path */
     uint32_t key[MAX_CELLS];
     float    proto[MAX_CELLS][NFEAT];  /* continuous context key for NN addressing (D019):
-                                          the cell's address; birth-fixed, only merge moves it.
+                                          the cell's address; birth-fixed. Merge moves it;
+                                          split forks a child address from it (CINM_ENABLE_SPLIT).
                                           distinct from w (what the cell predicts). zero for
                                           exact-key cells. */
     float    w[MAX_CELLS][NFEAT];
@@ -46,6 +47,14 @@ typedef struct {
     uint32_t last_touched[MAX_CELLS];
     bool     in_use[MAX_CELLS];
     bool     frozen[MAX_CELLS];   /* frozen by consolidation: decay/eviction exempt (D018) */
+#ifdef CINM_ENABLE_SPLIT
+    /* split signal (D019 inverse-of-merge): the per-cell contradiction pressure
+     * `conflict_i` from theory, realized as a rate. Written only by the
+     * cinm_update_adaptive_split wrapper; uniformly zero on every non-split build. */
+    uint32_t conflict[MAX_CELLS];            /* broad contradictions (agree<0) since last reset */
+    float    conflict_dir[MAX_CELLS][NFEAT]; /* EWMA of (ctx - proto) on contradiction: the split direction */
+    bool     split_locked[MAX_CELLS];        /* a split child: merge-exempt, like frozen (anti-oscillation) */
+#endif
     size_t   count;
     uint32_t t;            /* logical event clock */
     uint32_t epoch;        /* consolidation generation; 0 until first consolidate (D018) */
@@ -91,6 +100,15 @@ cinm_update_result cinm_update_pairwise(cinm_map *m, size_t i, const float dphi[
 /* Margin/confidence-gated bounded update: scales the step by alignment and
  * maturity, evolves conf and (from conf) plast, flags conflict. */
 cinm_update_result cinm_update_adaptive(cinm_map *m, size_t i, const float dphi[static NFEAT], float reward, uint32_t t);
+#ifdef CINM_ENABLE_SPLIT
+/* Split-aware adaptive update (D019). Wraps cinm_update_adaptive (left a zero-diff),
+ * then accumulates the split signal: counts a broad contradiction (agree<0, i.e.
+ * reward*margin_before < 0) into conflict[i] and EWMAs the context-space dissent
+ * direction (ctx - proto[i]) into conflict_dir[i]. The deferred split pass in
+ * cinm_consolidate reads these to decide whether one address carries two schemas. */
+cinm_update_result cinm_update_adaptive_split(cinm_map *m, size_t i, const float ctx[static NFEAT],
+                                              const float dphi[static NFEAT], float reward, uint32_t t);
+#endif
 /* Multiply every in-use cell's weights by clampf(factor,0,1); provenance intact. */
 void   cinm_decay(cinm_map *m, float factor);
 void   cinm_update(cinm_map *m, size_t i, const float dphi[static NFEAT], float reward, uint32_t t);
@@ -118,12 +136,22 @@ typedef struct {
     float    promote_conf;     /* freeze candidates have conf >= this ...                  */
     uint32_t promote_evidence; /*   ... and evidence >= this (well-corroborated).          */
     float    merge_radius2;    /* fold non-frozen prototype pairs within this sq-dist; 0 = off */
+    /* split (D019 inverse-of-merge, CINM_ENABLE_SPLIT builds only; inert otherwise).
+     * A cell splits when its broad-contradiction rate crosses one third and the dissent
+     * has a consistent context direction. split_min_conflict == 0 disables splitting.
+     * (Symmetric opposite schemas sit at ~1/2 contradiction, so the threshold is set below
+     * that ceiling and above the noise floor of a coherent cell — see split_check.c.) */
+    uint32_t split_min_conflict;  /* split eligible at >= this many contradictions; 0 = split off */
+    uint32_t split_min_evidence;  /*   ... and >= this evidence (the rate is trustworthy)         */
+    float    split_dir_floor2;    /*   ... and ||conflict_dir||^2 >= this (separable, not aliased) */
 } cinm_consolidate_policy;
 
 typedef struct {
     uint32_t evicted;          /* dead cells dropped (lossy)                       */
     uint32_t promoted;         /* strong cells frozen (protected; not lossy)       */
     uint32_t merged;           /* near-duplicate prototypes folded away (lossy, R3.5) */
+    uint32_t split;            /* overloaded cells forked into a child (lossy, D019)  */
+    uint32_t split_suppressed; /* split trigger met but skipped (map full, or aliased: not separable) */
 } cinm_consolidate_result;
 
 /* Lossy consolidation: merge near-duplicate prototypes (R3.5, if merge_radius2 > 0), freeze

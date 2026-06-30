@@ -105,6 +105,14 @@ disk tier (decision D013).
 - `scale_nn_index_bench.c` - run-scale-nn-index-bench: KD `find` vs scan `cinm_address_nn`
   across the doc-12 regimes to 1M; reports speedup and the O(count·log count) build cost
   separately. Writes nothing; see the hand-authored `runs/cim-sys-scale-v3/` bundle.
+- `split_check.c` - gate run-split (opt-in `-DCINM_ENABLE_SPLIT`): proves D019 cell-splitting,
+  the inverse of merge. When one NN address carries two address-separable schemas with
+  opposite preferences a single cell under-fits; the deferred split pass (Pass 0.5) forks the
+  dissenting sub-population into a child and the pair recovers win-rate. 7 assertions incl. the
+  aliased *negative control* (split correctly declines) and the `split_locked` anti-oscillation.
+- `split_forget_probe.c` - run-split-forget (opt-in `-DCINM_ENABLE_SPLIT`): the doc-18
+  forgetting probe (learn A → interleave B → revive under A+B), split OFF vs ON. A measurement,
+  not a gate. See the hand-authored `runs/cim-learnq-split-v1/` bundle.
 
 ## Build And Run
 
@@ -119,6 +127,8 @@ make run-log-invariants # event-log replay invariant guards
 make run-ledger   # decision-ledger append-only receipts (D018)
 make run-consolidate # lossy consolidation: evict/freeze, revival cost, lossy vs within-epoch (D018)
 make run-nn-address  # NN/prototype addressing + R3.5 merge: clustering, novelty, faithful merge (D019)
+make run-split        # D019 cell-splitting (inverse of merge): under-fit recovery, separability null (-DCINM_ENABLE_SPLIT)
+make run-split-forget # doc-18 forgetting probe: split OFF vs ON protects an old taste (-DCINM_ENABLE_SPLIT)
 make run-undo     # bounded undo: within-horizon exact, beyond/across-epoch refused (D018)
 make run-taste-loop  # drum taste loop: context-addressing beats blind baseline (vertical O)
 make run-self-adapt  # Godel-Darwin: self-tunes decay on drift, held-out gate (vertical P)
@@ -162,6 +172,18 @@ Expected results:
   exact-key hash's ~O(1) does not transfer. `nn_index_build_ns_per_cell` (the
   O(count·log count) build, ~9× the hash's) is reported separately. See
   `runs/cim-sys-scale-v3/`.
+- `run-split` prints the conflict-rate + `dir2` diagnostics and seven `PASS` lines, exits 0.
+  A single torn cell sits at chance (`wr_off=0.505`); splitting recovers it to `0.960`
+  (1.90×). The aliased fixture is *suppressed* (`split_suppressed=1`, stays 0.480) — splitting
+  declines when the sub-populations share an address. Opt-in `-DCINM_ENABLE_SPLIT`; the default
+  build is byte-exact (`sizeof(cinm_map)` unchanged, the full default gate suite green).
+- `run-split-forget` prints the OFF-vs-ON table: taste A retained `0.322` (split off, forgotten)
+  vs `0.960` (split on) under continued interference, revival `1200` (never) vs `100` events.
+  *Immediate* retention is equal (`0.760`) — splitting isolates the interferer, it does not
+  restore. See `runs/cim-learnq-split-v1/`.
+- **The 1/3 rate threshold is empirical.** Symmetric opposite schemas (`wtB = −wtA`) sit at
+  ~1/2 contradiction (`winrate_B = 1 − winrate_A`), so a 1/2 gate sits on the structural ceiling
+  and never reliably fires (measured 0.490) — `cinm.c` uses `3·conflict ≥ evidence`.
 
 All targets build with:
 

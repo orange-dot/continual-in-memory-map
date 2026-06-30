@@ -509,8 +509,29 @@ Consequence:
   ~O(1) (~9 000× at 1M); NN indexes only modestly (~8.3× at 1M, sub-1× below ~2k cells)
   because at NFEAT=8 an exact metric tree is backtracking-bound. The asymmetry is
   measured; the negative-result watch above stands for the NN path.
-- Deferred, not dropped: cell *splitting* (the inverse of merge); replayable NN
-  addressing (the event log stays exact-key — `cinm_event` carries `key`, not a
-  context vector); an EMA / drift-tracking prototype (birth-fixed ships first).
+- Cell *splitting* — the inverse of merge — **landed** (`cim-learnq-split-v1`,
+  opt-in `-DCINM_ENABLE_SPLIT`). When one address is forced to carry two
+  address-separable schemas with opposite preferences, a single cell under-fits
+  (win-rate 0.505, chance); a deferred split pass (`cinm_consolidate` Pass 0.5,
+  beside merge) forks the dissenting sub-population into a child placed along the
+  contradiction direction (`proto + conflict_dir`, libm-free), and the pair recovers
+  to 0.960 (1.90×). It **declines** to split *aliased* sub-populations (same address,
+  opposite reward, `‖conflict_dir‖² < split_dir_floor2`): address-splitting cannot
+  separate what shares an address — the built-in negative control. Anti-oscillation is
+  a per-cell `split_locked` flag (the child is merge-exempt like a frozen cell), chosen
+  over radius hysteresis. The trigger threshold is **empirical**: symmetric opposite
+  schemas sit at ~1/2 contradiction (`winrate_B = 1 − winrate_A`), so a 1/2 gate sits on
+  the structural ceiling and never reliably fires — corrected to 1/3 (`3·conflict ≥
+  evidence`). It is **lossy** (child evidence apportioned by the dissent count, content
+  re-learned not recovered) and rides the consolidation epoch boundary (D018). The
+  considered-and-rejected alternative was an eager write-path split. Default + scale
+  builds carry neither the bytes nor the code (`sizeof(cinm_map)` byte-identical;
+  20/20 default gates green). The doc-18 forgetting probe shows it protects an old
+  taste under continued interference (0.96 vs 0.32) — forward-looking isolation, not
+  restoration.
+- Deferred, not dropped: replayable NN addressing (the event log stays exact-key —
+  `cinm_event` carries `key`, not a context vector); an EMA / drift-tracking prototype
+  (birth-fixed ships first); split-separation enforced only vs the parent today
+  (vs all in-use cells is a v2 hardening pass).
 - The kernel stays libm-free (squared-L2 distance, no sqrt) and RAM-only (D013); the
   `cinm_` prefix is unchanged.

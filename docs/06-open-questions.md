@@ -6,7 +6,14 @@
 - Should cells store vectors, low-rank adapters, counters, or small rules?
 - How should confidence be updated under repeated weak evidence?
 - How should contradictory evidence be represented?
-- When does a conflict split a cell instead of lowering confidence?
+- ~~When does a conflict split a cell instead of lowering confidence?~~
+  **Resolved (D019, `cim-learnq-split-v1`): when the dissent has a consistent context
+  direction.** A cell splits when its broad-contradiction rate crosses 1/3 *and*
+  `‖conflict_dir‖² ≥ split_dir_floor2` (the EWMA of `ctx − proto` on contradiction is
+  address-separable). If the rate is high but the direction collapses to ~0 — the two
+  sub-populations are *aliased* (same address, opposite reward) — the split is
+  **suppressed** and the cell falls back to lowering confidence / route-by-hidden-context
+  (`01-theory.md:179`). Address-splitting separates only what differs by address.
 - What should plasticity mean after consolidation?
 - How much eligibility trace is useful before it becomes hidden sequence memory?
 
