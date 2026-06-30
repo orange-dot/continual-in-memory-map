@@ -503,6 +503,12 @@ Consequence:
   where exact keys fragment to the cell ceiling.
 - Pre-registered negative-result watch (doc 03): if addressing turns out to dominate
   every other design choice, that is a recorded result, not a silent win.
+- Addressing index landed (Faza 3a/3b): an auxiliary exact-key hash (`cinm_index`,
+  `cim-sys-scale-v2`) and an NN KD-tree (`cinm_nn_index`, `cim-sys-scale-v3`), both
+  byte-exact with the scan and built *alongside* the untouched kernel. Exact keys go
+  ~O(1) (~9 000× at 1M); NN indexes only modestly (~8.3× at 1M, sub-1× below ~2k cells)
+  because at NFEAT=8 an exact metric tree is backtracking-bound. The asymmetry is
+  measured; the negative-result watch above stands for the NN path.
 - Deferred, not dropped: cell *splitting* (the inverse of merge); replayable NN
   addressing (the event log stays exact-key — `cinm_event` carries `key`, not a
   context vector); an EMA / drift-tracking prototype (birth-fixed ships first).

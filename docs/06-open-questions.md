@@ -69,7 +69,17 @@
 - Is CPU cache behavior more important than arithmetic throughput?
 - Which operations, if any, benefit from CUDA?
 - What is the cost of explanation?
-- How large can the map grow before retrieval dominates?
+- How large can the map grow before retrieval dominates? **(Measured, decision A.)**
+  With the linear scan, retrieval dominates from the *smallest* map (`crossover_n =
+  256`; `cim-sys-scale-v1`) — scoring is flat ~4–6 ns/cell, addressing is the wall.
+  Phase 3a then indexed the exact-key scan: `cinm_address` becomes ~O(1) (~47 ns at
+  1M vs 443 µs scanned), byte-exact, so an *exact-key* map now grows to ≥ 1M cells
+  without retrieval dominating (`cim-sys-scale-v2`). The nearest-neighbour path
+  (`cinm_address_nn`) is now indexed too (`cinm_nn_index`, a static KD-tree,
+  `cim-sys-scale-v3`) and byte-exact, but only modestly: at NFEAT=8 the exact tree is
+  backtracking-bound, so it reduces NN cost ~8.3× at 1M (and is *slower* than the scan
+  below ~2k cells) rather than flattening it like the exact-key hash. The
+  exact-key/NN asymmetry is now measured, not assumed.
 - What snapshot format balances speed and inspectability? (In-RAM today a
   snapshot is a whole-map copy; an on-disk format is deferred — D013.)
 

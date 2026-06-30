@@ -5,7 +5,15 @@
 #include <stdint.h>
 #include <stddef.h>
 
-enum { NFEAT = 8, MAX_CELLS = 256 };
+/* MAX_CELLS is the map capacity. It is a *compile-time* parameter: override it
+ * with -DCINM_MAX_CELLS=N at build time (the scale benchmark builds a large map
+ * this way). The default keeps the historical 256, so every existing gate is
+ * byte-identical to before. NFEAT (the feature dimension) stays fixed — scaling
+ * is about cell count, not feature width — and 8 is conveniently one AVX2 vector. */
+#ifndef CINM_MAX_CELLS
+#define CINM_MAX_CELLS 256
+#endif
+enum { NFEAT = 8, MAX_CELLS = CINM_MAX_CELLS };
 constexpr float W_MAX = 4.0f;   /* weight clamp bound */
 constexpr float ETA   = 0.1f;   /* learning rate */
 

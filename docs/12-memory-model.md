@@ -48,9 +48,36 @@ RAM          = active map (primary state) + the event log (evidence + bounded un
 - **RAM:** keep hot-loop access linear and predictable; the big world lives here
   but the hot path should not chase it randomly.
 
-Measured here (doc 11): `cinm_map` ≈ 15 KiB fits L1d (48 KiB) with room; a 60 B
-cell gives capacity regimes ≈ **819 cells in L1, ~35k in L2, ~420k in L3**, then
-DRAM-bound (~89 GB/s).
+Earlier *estimate* (60 B cell, 48 KiB L1d): ≈ 819 cells in L1, ~35k in L2,
+~420k in L3. **Two corrections from the cim-sys-scale-v1 run (decision A):**
+(1) the cell is **90 B today** — the D019 `proto[NFEAT]` address nearly doubled
+the 60 B AoS figure; (2) regimes are host-specific. On the benchmark host (i7-4600U:
+L1d 32 KiB/core, L2 256 KiB/core, L3 4 MiB) the 90 B cell gives ≈ **364 in L1,
+~2913 in L2, ~46603 in L3**, then DRAM.
+
+**The cache regime is not the lever, though.** The measured `crossover_n = 256`:
+linear-scan addressing (`cinm_address` O(count), `cinm_address_nn` O(count·NFEAT))
+dominates the per-cell score work from the *smallest* swept map and stays dominant
+to 1M cells — `score_ns_per_cell` is a flat ~4–6 ns across every regime, while one
+lookup reaches ~404 µs (p50 823 µs) at 1M. Retrieval, not arithmetic or cache
+layout, is the scaling wall. See `experiments/c-kernel/runs/cim-sys-scale-v1/`
+(doc 18 watch "addressing dominates" — confirmed).
+
+**Phase 3a removed that wall for exact-key retrieval (cim-sys-scale-v2).** An
+open-addressing hash index (`cinm_index.c`, added *alongside* the untouched linear
+scan) turns `cinm_address` from O(count) into ~O(1): on the same host the per-query
+cost goes 130 ns @256 / 49.6 µs @131k / **443 µs → 47 ns at 1M** (≈ 9 000× there),
+and the linear tail (v1 p99 4.3 ms) disappears — one hash probe has no
+count-dependent tail. The index reproduces the scan's exact cell choice byte-for-byte
+(`scale_index_check.c` green; the linear scan stays the reference, doc 11 rule #1), so
+the cache-regime numbers above still describe the *scan*; the index sidesteps them.
+Build cost is O(count) (~24–74 ns/cell), amortized for read-heavy addressing. The
+nearest-neighbour scan (`cinm_address_nn`) is now indexed too (`cinm_nn_index.c`, a
+static KD-tree, cim-sys-scale-v3) and byte-exact — but at NFEAT=8 it is
+backtracking-bound, so it only *reduces* the wall (≈6.2 ms → 0.74 ms mean at 1M, 8.3×,
+and slower than the scan below ~2k cells), not flatten it the way the exact-key hash
+did. The exact-key/NN asymmetry is measured, not assumed (see
+`runs/cim-sys-scale-v3/summary.md`).
 
 ## C implications — hot/cold + SoA (adopted now)
 
